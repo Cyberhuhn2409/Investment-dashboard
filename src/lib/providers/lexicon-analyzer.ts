@@ -11,7 +11,7 @@ const STOPWORDS = new Set(
     "der die das und oder aber zu von im in am an auf für mit ist sind war waren sein es ein eine einer eines den dem des " +
     "ich du wir ihr sie er nicht kein keine noch schon heute was wie wer wenn dann auch nur mal hier da bei nach aus vor " +
     "über unter mehr sehr jemand habe hat haben bin bist seid euch mir mich dir dich uns " +
-    "again still today going looking keeps since know nothing yet here there some every other been being"
+    "again still today going looking keeps since know nothing yet here there some every other been being broke single share"
   ).split(" "),
 );
 

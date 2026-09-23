@@ -102,6 +102,21 @@ export function signalInputs(daily: Candle[], social: SocialData, news: NewsResu
   };
 }
 
+/**
+ * Während einer laufenden Sitzung ist das Tagesvolumen unvollständig. Für den
+ * Vergleich mit ganzen Tagen wird es anhand des Sitzungsfortschritts auf einen
+ * vollen Tag hochgerechnet (linear, mindestens 15 % Fortschritt).
+ */
+export function projectOpenSessionVolume(volumes: readonly number[], instrument: Instrument, marketOpen: boolean, now = nowMs()): number[] {
+  const out = [...volumes];
+  if (!marketOpen || out.length === 0) return out;
+  const s = latestSession(instrument.region, now);
+  if (!s.isOpen) return out;
+  const progress = Math.min(1, Math.max(0.15, (now - s.open) / (s.close - s.open)));
+  out[out.length - 1] = out[out.length - 1]! / progress;
+  return out;
+}
+
 function compact(signal: Signal): CompactSignal {
   return {
     score: signal.score,
@@ -145,7 +160,8 @@ async function buildRow(instrument: Instrument): Promise<RowBundle> {
   const closes = daily.value.map((c) => c.c);
   // Kursreihe mit aktuellem Kurs synchronisieren
   if (closes.length > 0 && Number.isFinite(quote.value.price)) closes[closes.length - 1] = quote.value.price;
-  const signal = computeSignal(signalInputs(daily.value, social.value, news.value));
+  const inputs = signalInputs(daily.value, social.value, news.value);
+  const signal = computeSignal({ ...inputs, volumes: projectOpenSessionVolume(inputs.volumes, instrument, quote.value.marketOpen) });
   const days = social.value.daily;
   const today = days[days.length - 1];
   const baselineDays = days.slice(-31, -1);

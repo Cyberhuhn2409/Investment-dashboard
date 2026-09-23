@@ -59,3 +59,11 @@ Live-Abrufe waren aus der Build-Umgebung nicht möglich (Proxy blockiert die Anb
 - Keine Firmenlogos (Markenrechte, externe Requests) → Monogramme mit Sektorfarbe.
 - Charts: TradingView Lightweight Charts™ (Attribution-Logo im Chart + Link im Footer/Sidebar). Scrubbing per Maus und per Touch (eigener Pointer-Handler mit `touch-action: pan-y`, damit vertikales Scrollen erhalten bleibt).
 - Heatmap: `d3-hierarchy` (Squarify) + absolut positionierte Links statt Canvas/ECharts – klein, zugänglich (jede Kachel ist ein fokussierbarer Link mit Label), animierbar.
+
+## D8 – Performance & Zustände
+- **Keine `loading.tsx` auf statischen Routen:** Ein Suspense-Boundary führt auch bei vorgerenderten Seiten dazu, dass React den Inhalt erst per (gedrosseltem) Suspense-Reveal einblendet – gemessen ~600 ms spätere LCP. Start, Heatmap, Entdecken, Watchlist und Detail sind vorgerendert; statt Routen-Skeletons zeigt der angetippte Link per `useLinkStatus` einen dezenten Pending-Zustand (relevant, wenn Detailseiten mit echten Providern erst bei Bedarf gerendert werden).
+- **Echte 404:** Das Detail-Layout prüft das Symbol vor jedem Streaming (`notFound()` im Layout), daher antworten unbekannte Symbole mit HTTP 404.
+- **Skeletons** bleiben dort, wo Daten clientseitig nachgeladen werden: Watchlist, Chart (Overlay, kein Layout-Shift), Chart-Zeitraumwechsel, Suche.
+- **Volumen während der Sitzung** wird für den Vergleich linear auf einen ganzen Handelstag hochgerechnet (sonst wäre die Volumen-Anomalie vor Handelsschluss systematisch zu niedrig).
+- **Heatmap:** Kacheln unter 24 px sind keine eigenen Link-Ziele (WCAG 2.5.8 Target Size); Tippen vergrößert den Sektor, dort werden sie zu Links. Sektor-Buttons sind 24 px hoch.
+- **Monogramme, Systemschrift, keine externen Bilder/Fonts** halten das initiale Laden klein (Lighthouse mobil: Performance 95–98, Accessibility 100).

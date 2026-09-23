@@ -24,7 +24,7 @@ export function SentimentMeter({ value, className = "" }: { value: number | null
           aria-hidden="true"
         />
       </span>
-      <span aria-hidden="true" className="tnum w-[3.2rem] text-[0.75rem] text-fg-2">
+      <span aria-hidden="true" className="tnum hidden w-[3.2rem] text-[0.75rem] text-fg-2 sm:inline">
         {formatNumber(value, 2, { sign: true })}
       </span>
     </span>

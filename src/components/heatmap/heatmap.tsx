@@ -152,16 +152,16 @@ export function Heatmap({ tiles }: { tiles: HeatTile[] }) {
         />
       </div>
 
-      <div className="mt-3 flex min-h-9 items-center justify-between gap-3 px-4 lg:px-0">
+      <div className="mt-3 flex min-h-9 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 lg:px-0">
         {zoom ? (
           <button
             type="button"
             onClick={() => setZoom(null)}
-            className="press -ml-1 inline-flex items-center gap-0.5 rounded-lg py-1 pr-2 text-[0.9375rem] font-medium text-accent"
+            aria-label={`Alle Sektoren – zurück zur Übersicht (aktuell: ${sectorLabel(zoom)})`}
+            className="press -ml-1 inline-flex items-center gap-0.5 whitespace-nowrap rounded-lg py-1 pr-2 text-[0.9375rem] font-medium text-accent"
           >
             <ChevronLeftIcon size={20} strokeWidth={2.2} />
             Alle Sektoren
-            <span className="ml-1 text-fg-2">/ {sectorLabel(zoom)}</span>
           </button>
         ) : (
           <p className="text-[0.8125rem] text-fg-2">
@@ -219,7 +219,7 @@ export function Heatmap({ tiles }: { tiles: HeatTile[] }) {
                 const big = w >= 120 && h >= 80;
                 const fs = big ? Math.min(22, Math.max(13, Math.sqrt(w * h) / 7)) : 11.5;
                 // Nur anzeigen, was vollständig passt (grobe Breitenschätzung der Systemschrift)
-                const fits = (text: string, size: number) => text.length * size * 0.64 + 6 <= w;
+                const fits = (text: string, size: number) => text.length * size * 0.8 + 10 <= w;
                 const valueText = valueLabel(v, metric);
                 const showTicker = h >= 20 && fits(tile.t, fs);
                 const showValue = showTicker && h >= 36 && fits(valueText, fs * 0.82);

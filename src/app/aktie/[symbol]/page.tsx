@@ -150,9 +150,9 @@ export default async function InstrumentPage(props: PageProps<"/aktie/[symbol]">
 
         <footer className="mt-10 space-y-2 px-4 text-[0.75rem] leading-relaxed text-fg-2 lg:px-0">
           <p>
-            Quellen: {status.sources.map((s) => s.label).join(", ")}.
+            Quellen: {[...new Set(status.sources.map((s) => s.label))].join(", ")}.
             {status.sources
-              .filter((s) => s.attribution)
+              .filter((s, i, all) => s.attribution && all.findIndex((x) => x.attribution?.url === s.attribution?.url) === i)
               .map((s) => (
                 <span key={s.id}>
                   {" "}

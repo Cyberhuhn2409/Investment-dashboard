@@ -203,7 +203,7 @@ interface StoryShape {
   gap: number;
 }
 
-function storyShape(story: Story, rng: Rng): StoryShape {
+function storyShape(story: Story, rng: Rng, dailyVol: number): StoryShape {
   const base: StoryShape = {
     drift: 0,
     driftDays: 0,
@@ -220,9 +220,9 @@ function storyShape(story: Story, rng: Rng): StoryShape {
     case "buzz-bear":
       return { ...base, drift: -rng.range(0.008, 0.014), driftDays: 6, mentionMult: rng.range(3, 5), sentimentToday: -rng.range(0.3, 0.55), volumeMult: rng.range(1.8, 2.8), newsMult: 2.5, gap: -rng.range(0.02, 0.05) };
     case "momentum-up":
-      return { ...base, drift: rng.range(0.007, 0.012), driftDays: 20, mentionMult: rng.range(1.3, 1.7), sentimentToday: rng.range(0.25, 0.4), volumeMult: rng.range(1.6, 2.2), newsMult: 1.6 };
+      return { ...base, drift: rng.range(0.55, 0.8) * dailyVol, driftDays: 20, mentionMult: rng.range(1.3, 1.7), sentimentToday: rng.range(0.25, 0.4), volumeMult: rng.range(1.3, 1.6), newsMult: 1.6 };
     case "momentum-down":
-      return { ...base, drift: -rng.range(0.006, 0.011), driftDays: 20, mentionMult: rng.range(1.3, 1.6), sentimentToday: -rng.range(0.2, 0.35), volumeMult: rng.range(1.6, 2.2), newsMult: 1.7 };
+      return { ...base, drift: -rng.range(0.5, 0.75) * dailyVol, driftDays: 20, mentionMult: rng.range(1.3, 1.6), sentimentToday: -rng.range(0.2, 0.35), volumeMult: rng.range(1.3, 1.6), newsMult: 1.7 };
     case "sentiment-flip": {
       const up = rng.chance(0.6);
       return { ...base, drift: up ? 0.003 : -0.003, driftDays: 5, mentionMult: rng.range(1.2, 1.5), sentimentToday: up ? rng.range(0.35, 0.55) : -rng.range(0.3, 0.5), sentimentBaselineShift: up ? -0.2 : 0.2, volumeMult: 1.3, newsMult: 1.3 };
@@ -278,12 +278,12 @@ function buildInstrument(instrument: Instrument, sessions: Session[], nowMs: num
   const sym = instrument.symbol;
   const rng = createRng(`series:${sym}`);
   const story = storyFor(instrument);
-  const shape = storyShape(story, createRng(`shape:${sym}`));
   const n = sessions.length;
   const latest = sessions[n - 1]!;
 
   const annualVol = SECTOR_VOL[instrument.sector] * (VOL_MULT[sym] ?? 1) * rng.range(0.85, 1.15);
   const dailyVol = annualVol / Math.sqrt(252);
+  const shape = storyShape(story, createRng(`shape:${sym}`), dailyVol);
   const drift = rng.normal(0.09, 0.08) / 252;
   const beta = rng.range(0.7, 1.35) * Math.sqrt(VOL_MULT[sym] ?? 1);
   const mkt = marketFactor(instrument.region, n);
@@ -293,9 +293,13 @@ function buildInstrument(instrument: Instrument, sessions: Session[], nowMs: num
   // Renditen erzeugen
   const rets: number[] = [];
   for (let i = 0; i < n; i++) {
-    let r = drift + beta * (mkt[i] ?? 0) + (sec[i] ?? 0) + rng.normal(0, idioVol);
     const fromEnd = n - 1 - i;
-    if (fromEnd < shape.driftDays) r += shape.drift;
+    // Im Story-Fenster dominiert der Trend (gedämpftes Rauschen), damit die
+    // kuratierten Beispiele das zeigen, was ihre Story verspricht.
+    const inStory = fromEnd < shape.driftDays;
+    const noise = inStory ? 0.45 : 1;
+    let r = drift + noise * (beta * (mkt[i] ?? 0) + (sec[i] ?? 0) + rng.normal(0, idioVol));
+    if (inStory) r += shape.drift;
     if (fromEnd === 0) r += shape.gap;
     // gelegentliche Sprünge (Quartalszahlen)
     if (rng.chance(1 / 63)) r += rng.normal(0, dailyVol * 3);
@@ -496,6 +500,7 @@ function buildNews(
 ): NewsItem[] {
   const rng = createRng(`newsitems:${instrument.symbol}`);
   const items: NewsItem[] = [];
+  const usedHeadlines = new Set<string>();
   const days = Math.min(7, newsDaily.length);
   for (let k = 0; k < days; k++) {
     const idx = newsDaily.length - 1 - k;
@@ -503,8 +508,14 @@ function buildNews(
     const dayStart = (social[idx]?.t ?? 0) * 1000;
     const sentiment = k === 0 && shape.sentimentToday !== null ? shape.sentimentToday : (social[idx]?.sentiment ?? 0);
     for (let j = 0; j < count; j++) {
-      const tone = toneFor(sentiment, rng);
-      const headline = fill(rng.pick(NEWS_HEADLINES[tone]), instrument.ticker, instrument.name);
+      const wanted = toneFor(sentiment, rng);
+      const tone = [wanted, "neu" as Tone, "pos" as Tone, "neg" as Tone].find((t) =>
+        NEWS_HEADLINES[t].some((h) => !usedHeadlines.has(h)),
+      );
+      if (!tone) break;
+      const template = rng.pick(NEWS_HEADLINES[tone].filter((h) => !usedHeadlines.has(h)));
+      usedHeadlines.add(template);
+      const headline = fill(template, instrument.ticker, instrument.name);
       const hour = rng.range(6, 21);
       const publishedAt = Math.min(dayStart + hour * 3_600_000, referenceMs - rng.range(5, 90) * 60_000);
       const query = encodeURIComponent(`${instrument.name} Aktie`);
@@ -533,10 +544,13 @@ function buildDiscussions(instrument: Instrument, shape: StoryShape, referenceMs
   const sentiment = shape.sentimentToday ?? rng.normal(0.08, 0.15);
   const out: Discussion[] = [];
   const used = new Set<string>();
+  const order: Tone[] = ["pos", "neu", "neg"];
   for (let i = 0; i < count; i++) {
-    const tone = toneFor(sentiment, rng);
-    const options = pool[tone].filter((t) => !used.has(t.title));
-    const tpl = options.length > 0 ? rng.pick(options) : rng.pick(pool[tone]);
+    const wanted = toneFor(sentiment, rng);
+    // Keine doppelten Beiträge: ist ein Ton erschöpft, auf einen anderen ausweichen.
+    const tone = [wanted, ...order.filter((t) => t !== wanted)].find((t) => pool[t].some((x) => !used.has(x.title)));
+    if (!tone) break;
+    const tpl = rng.pick(pool[tone].filter((t) => !used.has(t.title)));
     used.add(tpl.title);
     const community = rng.pick(communities);
     const text = fill(tpl.body, instrument.ticker, instrument.name);

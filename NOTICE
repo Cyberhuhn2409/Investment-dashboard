@@ -1,0 +1,7 @@
+Signal – Hinweise zu Drittanbieter-Software
+
+TradingView Lightweight Charts™
+Copyright (c) 2025 TradingView, Inc. https://www.tradingview.com/
+Lizenz: Apache License 2.0 (siehe node_modules/lightweight-charts/LICENSE)
+
+Weitere Abhängigkeiten und ihre Lizenzen: siehe package.json bzw. node_modules/*/LICENSE.

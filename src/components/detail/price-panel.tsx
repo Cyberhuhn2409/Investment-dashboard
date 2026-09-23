@@ -426,8 +426,9 @@ function ChartCanvas({
           2,
         )}. Genaue Werte stehen in den Kennzahlen.`}
       </p>
-      <div ref={container} className="h-[15rem] w-full select-none lg:h-[21rem]" style={{ touchAction: "pan-y" }}>
-        {!ready && <div className="skeleton h-full w-full rounded-none" aria-hidden="true" />}
+      <div ref={container} className="relative h-[15rem] w-full select-none lg:h-[21rem]" style={{ touchAction: "pan-y" }}>
+        {/* Overlay statt Platzhalter im Fluss: kein Layout-Shift, wenn der Chart eingefügt wird */}
+        {!ready && <div className="skeleton absolute inset-0 rounded-none" aria-hidden="true" />}
       </div>
     </>
   );
