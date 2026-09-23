@@ -16,7 +16,7 @@ type RawComponent = Omit<ScoreComponent, "weight" | "points" | "label">;
 const dirOf = (value: number, deadband = 0): Direction => (value > deadband ? 1 : value < -deadband ? -1 : 0);
 
 function unavailable(key: ComponentKey, detail: string): RawComponent {
-  return { key, score: 0, direction: 0, available: false, metrics: {}, detail };
+  return { key, score: 0, direction: 0, available: false, metrics: {}, detail, short: "keine Daten" };
 }
 
 /** Normierte Gewichte (Summe 1). Negative Gewichte werden als 0 behandelt. */
@@ -60,6 +60,12 @@ export function scoreMentions(inputs: SignalInputs, cfg: SignalConfig = SIGNAL_C
     available: true,
     metrics: { today, baselineMean: m, baselineStd: s, z, ratio, thin: thin ? 1 : 0 },
     detail,
+    short:
+      z >= 1
+        ? `${formatNumber(ratio, 1)}× mehr Erwähnungen als üblich`
+        : z <= -1
+          ? "Weniger Erwähnungen als üblich"
+          : "Erwähnungen im üblichen Rahmen",
   };
 }
 
@@ -96,6 +102,7 @@ export function scoreSentimentLevel(inputs: SignalInputs, cfg: SignalConfig = SI
     available: true,
     metrics: { sentiment: v },
     detail: `Stimmung in Diskussionen ${toneWord(v)} (${formatNumber(v, 2, { sign: true })} auf einer Skala von −1 bis +1).`,
+    short: `Stimmung ${toneWord(v)} (${formatNumber(v, 2, { sign: true })})`,
   };
 }
 
@@ -116,6 +123,10 @@ export function scoreSentimentShift(inputs: SignalInputs, cfg: SignalConfig = SI
       verb === "kaum verändert"
         ? `Stimmung gegenüber der Vorwoche kaum verändert (${formatNumber(delta, 2, { sign: true })}).`
         : `Stimmung hat sich gegenüber der Vorwoche ${verb} (${formatNumber(baseline, 2, { sign: true })} → ${formatNumber(value, 2, { sign: true })}).`,
+    short:
+      verb === "kaum verändert"
+        ? "Stimmung stabil ggü. Vorwoche"
+        : `Stimmung ${verb} (${formatNumber(delta, 2, { sign: true })})`,
   };
 }
 
@@ -138,6 +149,7 @@ export function scoreMomentum(inputs: SignalInputs, cfg: SignalConfig = SIGNAL_C
     available: true,
     metrics: { return20d: r, volatility: vol, z },
     detail: `Kurs ${formatPercent(r * 100, 1)} in ${n} Handelstagen – ${size} gemessen an der üblichen Schwankung (${formatNumber(z, 1, { sign: true })} σ).`,
+    short: `Kurs ${formatPercent(r * 100, 1)} in ${n} Handelstagen`,
   };
 }
 
@@ -161,6 +173,7 @@ export function scoreVolume(inputs: SignalInputs, cfg: SignalConfig = SIGNAL_CON
         : ratio <= 0.8
           ? `Handelsvolumen unter dem Durchschnitt (${formatNumber(ratio, 1)}×).`
           : `Handelsvolumen im üblichen Rahmen (${formatNumber(ratio, 1)}×).`,
+    short: ratio >= 1.2 ? `Volumen ${formatNumber(ratio, 1)}× über Schnitt` : `Volumen ${formatNumber(ratio, 1)}× Schnitt`,
   };
 }
 
@@ -183,6 +196,7 @@ export function scoreNews(inputs: SignalInputs, cfg: SignalConfig = SIGNAL_CONFI
       z >= 1
         ? `${formatNumber(recent, 0)} Nachrichten in 48 Std. – üblich sind etwa ${formatNumber(lambda, 0)}.`
         : `${formatNumber(recent, 0)} Nachrichten in 48 Std. (üblich: ~${formatNumber(lambda, 0)}).`,
+    short: `${formatNumber(recent, 0)} News in 48 Std. (sonst ~${formatNumber(lambda, 0)})`,
   };
 }
 
@@ -285,10 +299,19 @@ export function computeSignal(inputs: SignalInputs, cfg: SignalConfig = SIGNAL_C
   const direction = directionOf(bias, cfg);
   const confidence = confidenceOf(byKey, cfg);
 
-  const ranked = [...components].filter((c) => c.available).sort((a, b) => b.points - a.points);
+  // Begründungen: zuerst der Faktor, der den Signaltyp bestimmt, dann nach Beitrag.
+  const ranked = [...components]
+    .filter((c) => c.available)
+    .sort((a, b) => {
+      const ta = COMPONENT_TO_TYPE[a.key] === type ? 1 : 0;
+      const tb = COMPONENT_TO_TYPE[b.key] === type ? 1 : 0;
+      if (ta !== tb) return tb - ta;
+      return ta === 1 ? b.score - a.score : b.points - a.points;
+    });
   let reasonComps = ranked.filter((c) => c.score >= cfg.thresholds.reasonMinScore);
   if (reasonComps.length === 0) reasonComps = ranked.slice(0, 2);
   const reasons = reasonComps.map((c) => c.detail);
+  const highlights = reasonComps.map((c) => c.short);
 
   const caveats: string[] = [];
   if (byKey.mentions.metrics.thin === 1)
@@ -311,6 +334,7 @@ export function computeSignal(inputs: SignalInputs, cfg: SignalConfig = SIGNAL_C
     flagged: total >= cfg.thresholds.flagged,
     headline,
     reasons,
+    highlights,
     caveats,
   };
 }

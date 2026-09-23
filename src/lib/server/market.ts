@@ -105,6 +105,7 @@ function compact(signal: Signal): CompactSignal {
     direction: signal.direction,
     headline: signal.headline,
     reason: signal.reasons[0] ?? "",
+    highlights: signal.highlights.slice(0, 2),
     confidence: signal.confidence,
     flagged: signal.flagged,
   };

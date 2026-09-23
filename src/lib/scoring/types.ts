@@ -37,6 +37,8 @@ export interface ScoreComponent {
   metrics: Record<string, number>;
   /** Allgemeinverständliche Erklärung des Messwerts. */
   detail: string;
+  /** Kurzform für Karten, z. B. „6,2× mehr Erwähnungen als üblich“. */
+  short: string;
 }
 
 export type SignalDirection = "bullish" | "bearish" | "neutral";
@@ -56,8 +58,10 @@ export interface Signal {
   flagged: boolean;
   /** Einzeilige Zusammenfassung, z. B. „Buzz-Ausbruch mit positiver Stimmung“. */
   headline: string;
-  /** Begründungen in Alltagssprache, wichtigste zuerst. */
+  /** Begründungen in Alltagssprache, wichtigste zuerst (dominanter Typ vorn). */
   reasons: string[];
+  /** Kurzbegründungen in derselben Reihenfolge wie `reasons`. */
+  highlights: string[];
   /** Hinweise zur Datenqualität. */
   caveats: string[];
 }

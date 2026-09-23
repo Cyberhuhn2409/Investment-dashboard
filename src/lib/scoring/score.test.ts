@@ -269,6 +269,8 @@ describe("Gesamtsignal", () => {
     expect(s.type).toBe("volume");
     const news = computeSignal({ ...base, newsDaily: [...base.newsDaily.slice(0, -2), 12, 12] });
     expect(news.type).toBe("news");
+    expect(news.reasons[0]).toMatch(/Nachrichten/);
+    expect(news.highlights[0]).toMatch(/News in 48 Std/);
   });
 
   it("ist deterministisch", () => {

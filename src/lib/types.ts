@@ -13,6 +13,8 @@ export interface CompactSignal {
   direction: SignalDirection;
   headline: string;
   reason: string;
+  /** Bis zu zwei Kurzbegründungen für Karten. */
+  highlights: string[];
   confidence: Confidence;
   flagged: boolean;
 }

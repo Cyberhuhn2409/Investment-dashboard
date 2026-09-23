@@ -1,26 +1,340 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Signal – Design-Tokens
+ * Dunkel ist Standard, Hell per data-theme="light". Alle Text-/Hintergrund-
+ * Paare erfüllen WCAG AA (≥ 4,5:1 für Fließtext).
+ */
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --surface: #111113;
+  --surface-2: #1c1c1f;
+  --surface-3: #2a2a2e;
+  --glass: rgb(17 17 19 / 0.72);
+  --line: rgb(255 255 255 / 0.09);
+  --line-strong: rgb(255 255 255 / 0.16);
+  --fg: #f5f5f7;
+  --fg-2: #a1a1aa;
+  --fg-3: #8e8e96;
+  --accent: #9d8cff;
+  --accent-strong: #7b68ee;
+  --accent-soft: rgb(157 140 255 / 0.14);
+  --on-accent: #0b0716;
+  --up: #34d399;
+  --up-soft: rgb(52 211 153 / 0.14);
+  --down: #ff6b61;
+  --down-soft: rgb(255 107 97 / 0.14);
+  --warn: #ffd60a;
+  --warn-soft: rgb(255 214 10 / 0.12);
+  --tile-neutral: #2c2c31;
+  --shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 8px 24px rgb(0 0 0 / 0.4);
+  --focus: #b9adff;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f2f7;
+  --surface: #ffffff;
+  --surface-2: #ececf1;
+  --surface-3: #dedee5;
+  --glass: rgb(255 255 255 / 0.78);
+  --line: rgb(0 0 0 / 0.08);
+  --line-strong: rgb(0 0 0 / 0.14);
+  --fg: #0a0a0b;
+  --fg-2: #4e4e56;
+  --fg-3: #63636b;
+  --accent: #5b45e0;
+  --accent-strong: #4a35cc;
+  --accent-soft: rgb(91 69 224 / 0.1);
+  --on-accent: #ffffff;
+  --up: #11772f;
+  --up-soft: rgb(17 119 47 / 0.1);
+  --down: #c4262e;
+  --down-soft: rgb(196 38 46 / 0.09);
+  --warn: #8a5a00;
+  --warn-soft: rgb(138 90 0 / 0.1);
+  --tile-neutral: #66666e;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 20px rgb(0 0 0 / 0.06);
+  --focus: #5b45e0;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-glass: var(--glass);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-fg-3: var(--fg-3);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-up: var(--up);
+  --color-up-soft: var(--up-soft);
+  --color-down: var(--down);
+  --color-down-soft: var(--down-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", system-ui, Roboto,
+    "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  --shadow-card: var(--shadow);
+  --radius-card: 1.25rem;
+
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    background: var(--bg);
+    scroll-padding-top: 5rem;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+    overflow-x: clip;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+
+  button,
+  [role="button"],
+  a {
+    touch-action: manipulation;
+  }
+
+  button:not(:disabled),
+  [role="button"] {
+    cursor: pointer;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pb-tabbar {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .press {
+    transition: transform 0.35s var(--ease-spring), background-color 0.2s ease, opacity 0.2s ease;
+  }
+  .press:active {
+    transform: scale(0.97);
+  }
+
+  .glass {
+    background: var(--glass);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  .hairline-b {
+    box-shadow: inset 0 -0.5px 0 var(--line-strong);
+  }
+  .hairline-t {
+    box-shadow: inset 0 0.5px 0 var(--line-strong);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Skeleton-Schimmer */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: 0.5rem;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.06), transparent);
+  animation: shimmer 1.4s infinite;
+}
+[data-theme="light"] .skeleton::after {
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.7), transparent);
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Score-Ring: sanftes Einzeichnen */
+.ring-progress {
+  transition: stroke-dashoffset 0.9s var(--ease-spring);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-fade-up {
+  animation: fade-up 0.5s var(--ease-spring) both;
+}
+
+/* ---------------------------------------------------------------- */
+/* View Transitions (Seitenwechsel + Shared Element)                 */
+/* ---------------------------------------------------------------- */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-group(.morph) {
+  animation-duration: 420ms;
+  animation-timing-function: var(--ease-spring);
+}
+
+::view-transition-old(.nav-forward) {
+  --slide-offset: -48px;
+  animation:
+    140ms ease-in both vt-fade reverse,
+    380ms var(--ease-spring) both vt-slide reverse;
+}
+::view-transition-new(.nav-forward) {
+  --slide-offset: 48px;
+  animation:
+    220ms ease-out 100ms both vt-fade,
+    380ms var(--ease-spring) both vt-slide;
+}
+::view-transition-old(.nav-back) {
+  --slide-offset: 48px;
+  animation:
+    140ms ease-in both vt-fade reverse,
+    380ms var(--ease-spring) both vt-slide reverse;
+}
+::view-transition-new(.nav-back) {
+  --slide-offset: -48px;
+  animation:
+    220ms ease-out 100ms both vt-fade,
+    380ms var(--ease-spring) both vt-slide;
+}
+::view-transition-old(.fade) {
+  animation: 120ms ease-in both vt-fade reverse;
+}
+::view-transition-new(.fade) {
+  animation: 200ms ease-out 60ms both vt-fade;
+}
+
+@keyframes vt-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes vt-slide {
+  from {
+    translate: var(--slide-offset) 0;
+  }
+  to {
+    translate: 0 0;
+  }
+}
+
+/* Feste Navigation bleibt beim Seitenwechsel stehen */
+::view-transition-group(app-nav),
+::view-transition-group(app-nav-side) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(app-nav),
+::view-transition-old(app-nav-side) {
+  display: none;
+}
+::view-transition-new(app-nav),
+::view-transition-new(app-nav-side) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+  .skeleton::after {
+    animation: none;
+  }
+}
+
+/* Monogramm-Logos (Farbe je Sektor über --mono-h) */
+.mono {
+  background: hsl(var(--mono-h) 70% 62% / 0.16);
+  color: hsl(var(--mono-h) 85% 80%);
+}
+[data-theme="light"] .mono {
+  background: hsl(var(--mono-h) 70% 50% / 0.12);
+  color: hsl(var(--mono-h) 65% 30%);
 }
