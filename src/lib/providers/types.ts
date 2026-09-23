@@ -128,9 +128,17 @@ export interface SocialProvider extends ProviderInfo {
   getDiscussions(instrument: Instrument, limit: number): Promise<Discussion[]>;
 }
 
+export interface AnalyzerSummary {
+  text: string;
+  sentiments?: number[];
+}
+
 export interface TextAnalyzer extends ProviderInfo {
   /** Stimmung je Text, −1…+1. */
   scoreTexts(texts: string[]): Promise<number[]>;
-  /** Kurze deutsche Zusammenfassung der Diskussionen oder null. */
-  summarize(instrument: Instrument, discussions: Discussion[]): Promise<string | null>;
+  /**
+   * Kurze deutsche Zusammenfassung der Diskussionen. Optional mit neu
+   * bewerteter Stimmung je Diskussion (gleiche Reihenfolge), sonst null.
+   */
+  summarize(instrument: Instrument, discussions: Discussion[]): Promise<AnalyzerSummary | null>;
 }

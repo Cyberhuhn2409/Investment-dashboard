@@ -1,7 +1,8 @@
 import "server-only";
 import { INDICES, UNIVERSE, getInstrument, marketCapUsdBn, type Instrument, type Region } from "@/config/universe";
 import { latestSession, utcDayStart } from "@/lib/market-time";
-import type { Candle, NewsResult, SocialData } from "@/lib/providers/types";
+import { lexiconAnalyzer } from "@/lib/providers/lexicon-analyzer";
+import type { Candle, Discussion, NewsResult, SocialData } from "@/lib/providers/types";
 import { computeSignal } from "@/lib/scoring/score";
 import type { Signal, SignalInputs } from "@/lib/scoring/types";
 import { sentimentLabel } from "@/lib/sentiment/lexicon";
@@ -11,6 +12,7 @@ import type {
   ChartRange,
   CompactSignal,
   DataStatus,
+  DiscussionSummary,
   IndexRow,
   InstrumentDetail,
   InstrumentRow,
@@ -52,6 +54,8 @@ function assertScenario() {
 /* ------------------------------------------------------------------ */
 
 const SCORING_DAYS = 90;
+const EMPTY_SOCIAL: SocialData = { daily: [], hourly: [], sources: [] };
+const EMPTY_NEWS: NewsResult = { items: [], daily: [] };
 
 function loadDaily(instrument: Instrument, days: number) {
   const p = getProviders().price(instrument);
@@ -130,11 +134,13 @@ interface RowBundle {
 }
 
 async function buildRow(instrument: Instrument): Promise<RowBundle> {
+  // Kurse sind Pflicht; Social und News dürfen fehlen (Komponenten werden dann
+  // als „ohne Daten“ ausgewiesen und ihr Gewicht verteilt).
   const [daily, quote, social, news] = await Promise.all([
     loadDaily(instrument, SCORING_DAYS),
     loadQuote(instrument),
-    loadSocial(instrument),
-    loadNews(instrument),
+    loadSocial(instrument).catch(() => ({ value: EMPTY_SOCIAL, fetchedAt: 0, stale: true })),
+    loadNews(instrument).catch(() => ({ value: EMPTY_NEWS, fetchedAt: 0, stale: true })),
   ]);
   const closes = daily.value.map((c) => c.c);
   // Kursreihe mit aktuellem Kurs synchronisieren
@@ -317,7 +323,10 @@ function weekly(candles: Candle[]): Candle[] {
 async function buildChart(instrument: Instrument, range: ChartRange): Promise<ChartData> {
   const ps = getProviders();
   const price = ps.price(instrument);
-  const social = (await loadSocial(instrument)).value;
+  const social = await loadSocial(instrument).then(
+    (r) => r.value,
+    () => EMPTY_SOCIAL,
+  );
   const quote = (await loadQuote(instrument)).value;
 
   if (range === "1D") {
@@ -430,32 +439,27 @@ export async function getInstrumentDetail(symbol: string): Promise<InstrumentDet
   const [bundle, fundamentals, social, news, chart] = await Promise.all([
     buildRow(instrument),
     loadFundamentals(instrument),
-    loadSocial(instrument),
-    loadNews(instrument),
+    loadSocial(instrument).catch(() => ({ value: EMPTY_SOCIAL, fetchedAt: 0, stale: true })),
+    loadNews(instrument).catch(() => ({ value: EMPTY_NEWS, fetchedAt: 0, stale: true })),
     buildChart(instrument, "1M"),
   ]);
   const quote = (await loadQuote(instrument)).value;
 
   const socialProvider = ps.social(instrument);
-  const discussions = (
-    await cached(
-      `discussions:${socialProvider.id}:${instrument.symbol}`,
-      () => socialProvider.getDiscussions(instrument, 8),
-      ttl("social"),
-    )
-  ).value;
-
-  const summary = await cached(
-    `summary:${ps.analyzer.id}:${instrument.symbol}:${discussions.map((d) => d.id).join(",")}`,
-    async () => {
-      const text = await ps.analyzer.summarize(instrument, discussions);
-      return text ? { text, method: ps.analyzer.id === "lexicon" ? ("lexicon" as const) : ("ai" as const) } : null;
-    },
-    ttl("summary"),
+  const rawDiscussions = await cached(
+    `discussions:${socialProvider.id}:${instrument.symbol}`,
+    () => socialProvider.getDiscussions(instrument, 8),
+    ttl("social"),
   ).then(
     (r) => r.value,
-    () => null,
+    () => [] as Discussion[],
   );
+
+  const analysis = await summarizeDiscussions(instrument, rawDiscussions);
+  const discussions = analysis.sentiments
+    ? rawDiscussions.map((d, i) => ({ ...d, sentiment: analysis.sentiments?.[i] ?? d.sentiment }))
+    : rawDiscussions;
+  const summary = analysis.summary;
 
   const labels = discussions.map((d) => sentimentLabel(d.sentiment));
   const total = Math.max(1, labels.length);
@@ -493,6 +497,29 @@ export async function getInstrumentDetail(symbol: string): Promise<InstrumentDet
     summary,
     status,
   };
+}
+
+/**
+ * Zusammenfassung der Diskussionen: KI (falls konfiguriert), bei Fehler,
+ * Ablehnung oder Rate-Limit automatisch Lexikon-Fallback.
+ */
+async function summarizeDiscussions(
+  instrument: Instrument,
+  discussions: Discussion[],
+): Promise<{ summary: DiscussionSummary | null; sentiments?: number[] }> {
+  if (discussions.length === 0) return { summary: null };
+  const ps = getProviders();
+  const key = `summary:${ps.analyzer.id}:${instrument.symbol}:${discussions.map((d) => d.id).join(",")}`;
+  if (ps.analyzer.id !== lexiconAnalyzer.id) {
+    try {
+      const res = await cached(key, () => ps.analyzer.summarize(instrument, discussions), ttl("summary"));
+      if (res.value) return { summary: { text: res.value.text, method: "ai" }, sentiments: res.value.sentiments };
+    } catch {
+      // Fallback unten
+    }
+  }
+  const lex = await lexiconAnalyzer.summarize(instrument, discussions);
+  return { summary: lex ? { text: lex.text, method: "lexicon" } : null };
 }
 
 export function allSymbols(): string[] {

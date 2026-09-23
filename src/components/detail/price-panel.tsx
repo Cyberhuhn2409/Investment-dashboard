@@ -174,6 +174,11 @@ export function PricePanel({
             <div className="skeleton h-full w-full rounded-none opacity-60" />
           </div>
         )}
+        {!loading && !error && data.points.length === 0 && (
+          <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 rounded-xl bg-surface-2 px-4 py-3 text-center text-sm text-fg-2">
+            Für diesen Zeitraum liefert die Datenquelle keine Kurse (z. B. Intraday im Gratis-Tarif).
+          </div>
+        )}
         {error && (
           <div role="alert" className="absolute inset-x-4 top-1/2 -translate-y-1/2 rounded-xl bg-surface-2 px-4 py-3 text-center text-sm">
             <AlertIcon size={18} className="mx-auto mb-1 text-warn" />

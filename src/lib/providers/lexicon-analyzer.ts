@@ -10,7 +10,8 @@ const STOPWORDS = new Set(
     "any anyone else what why how who when where which im i'm it's dont don't can't will would should could has have had " +
     "der die das und oder aber zu von im in am an auf für mit ist sind war waren sein es ein eine einer eines den dem des " +
     "ich du wir ihr sie er nicht kein keine noch schon heute was wie wer wenn dann auch nur mal hier da bei nach aus vor " +
-    "über unter mehr sehr jemand habe hat haben bin bist seid euch mir mich dir dich uns"
+    "über unter mehr sehr jemand habe hat haben bin bist seid euch mir mich dir dich uns " +
+    "again still today going looking keeps since know nothing yet here there some every other been being"
   ).split(" "),
 );
 
@@ -60,6 +61,7 @@ export const lexiconAnalyzer: TextAnalyzer = {
     return texts.map((t) => lexiconSentiment(t).score);
   },
   async summarize(instrument, discussions) {
-    return lexiconSummary(instrument, discussions);
+    const text = lexiconSummary(instrument, discussions);
+    return text ? { text } : null;
   },
 };

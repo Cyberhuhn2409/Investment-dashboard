@@ -18,7 +18,15 @@ export function DataStatusLine({ status, className = "" }: { status: DataStatus;
       </time>
       <span className="inline-flex items-center gap-2">
         {marketLine(status)}
-        {status.demo && <DemoBadge />}
+        {status.demo ? (
+          <DemoBadge />
+        ) : (
+          status.sources.some((s) => s.mock) && (
+            <span className="rounded-md border border-line-strong px-1.5 py-px text-[0.6875rem] font-medium text-fg-2">
+              Teils Demo
+            </span>
+          )
+        )}
       </span>
     </p>
   );
