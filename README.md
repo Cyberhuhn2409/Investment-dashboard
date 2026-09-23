@@ -49,6 +49,7 @@ Ohne `.env` läuft alles mit **deterministischen Demo-Daten** (klar als „Demo�
 | `npm run e2e` | Playwright E2E (mobil + Desktop) inkl. axe-WCAG-Prüfung in beiden Themes – vorher `npm run build` |
 | `npm run screenshots` | Screenshots aller Screens nach `/screenshots` – vorher `npm run build` (einzelne Motive: `SHOTS=05,16 npm run screenshots`) |
 | `npm run lighthouse` | Lighthouse (mobil) für 5 Seiten; bricht ab bei Performance < 90 oder Accessibility < 95 |
+| `npm run test:realmode` | Echtdaten-Modus gegen nachgebildete Anbieter (Finnhub REST + WebSocket, Twelve Data): Echtzeit-Relay, Mischbetrieb, Ausfall + Neuverbindung – ohne Schlüssel, ohne Internet |
 | `npm run verify` | lint + typecheck + test + build |
 
 Für reproduzierbare Tests/Screenshots den Build mit eingefrorener Zeit erzeugen:
@@ -75,6 +76,8 @@ Alle Abrufe laufen serverseitig (Server Components, Route Handler). Schlüssel v
 
 Details, Begründungen und Stand der Recherche: [`DECISIONS.md`](DECISIONS.md) (D5).
 
+**Gratis-Kontingente:** Die Übersicht wartet nie auf Rate-Limits. Beim ersten Start erscheint sofort, was die Kontingente hergeben (Hinweis „x von y Werten geladen“); ein Hintergrund-Lader holt den Rest im Rahmen der Limits nach (mit Twelve Data Gratis ca. 8 Werte/Min., also rund 30 Min. bis zur vollständigen Übersicht). Detailseiten, Watchlist und Live-Kurse funktionieren sofort.
+
 **Scan-Umfang:** Mit echten Schlüsseln wertet der Snapshot standardmäßig nur Mega/Large Caps und den DAX laufend aus (`SCAN_UNIVERSE=mega,large,DAX`), weil Gratis-Kontingente nicht für 531 Werte reichen. Alle anderen Werte sind über Suche, Detailseite und Watchlist trotzdem vollständig nutzbar. Mit Bezahltarifen z. B. `SCAN_UNIVERSE=all`.
 
 **Mischbetrieb:** Sind nur einige Quellen konfiguriert, werden Lücken mit gekennzeichneten Demo-Daten gefüllt („Teils Demo“). `ALLOW_MOCK_FALLBACK=false` schaltet das ab. Fehlende Daten werden nie erfunden: Ohne Intraday-Quelle zeigt der 1T-Chart einen Hinweis.
@@ -89,7 +92,9 @@ Live-Kurse kommen per **Server-Sent Events** (`/api/live`): eine Verbindung pro 
 | **Echtzeit** | `FINNHUB_API_KEY` gesetzt | Finnhub-Trade-WebSocket (US-Aktien, ETF-Proxys für S&P 500/Nasdaq 100), serverseitig gebündelt; Schlüssel bleibt auf dem Server |
 | **Verzögert** | Werte ohne Echtzeitquelle (z. B. XETRA im Gratis-Tarif) | zuletzt geladener Kurs, ohne zusätzliche API-Aufrufe |
 
-Optional: `FINNHUB_WS=false` schaltet das WebSocket-Relay ab, `FINNHUB_WS_SYMBOLS` begrenzt die Zahl gleichzeitig abonnierter Symbole (Standard 50). Hinweis zum Hosting: SSE braucht eine Umgebung, die Antworten streamt (z. B. `next start`, Node-Server; bei Proxys Pufferung abschalten).
+Fällt die Verbindung zum Anbieter aus, zeigt Signal „Verzögert“ (letzter Kurs bleibt stehen) und verbindet sich selbst neu. Optional: `FINNHUB_WS=false` schaltet das WebSocket-Relay ab, `FINNHUB_WS_SYMBOLS` begrenzt die Zahl gleichzeitig abonnierter Symbole (Standard 50). Hinweis zum Hosting: SSE braucht eine Umgebung, die Antworten streamt (z. B. `next start`, Node-Server; bei Proxys Pufferung abschalten).
+
+**Testen ohne Schlüssel:** `npm run test:realmode` startet nachgebildete Anbieter (`scripts/fake-providers.mjs`) und prüft den kompletten Echtdaten-Weg im Browser. Dafür lassen sich die Anbieter-Adressen umbiegen (`FINNHUB_BASE_URL`, `FINNHUB_WS_URL`, `TWELVEDATA_BASE_URL`) – auch nützlich hinter einem Proxy.
 
 ## Relevanz
 

@@ -94,3 +94,13 @@ Live-Abrufe waren aus der Build-Umgebung nicht möglich (Proxy blockiert die Anb
 - Statusleiste mit Börsenuhren (New York, Frankfurt) und Live-Status, Laufband mit Indizes und den relevantesten Werten (pausiert bei Hover/Fokus, bei reduzierter Bewegung statisch scrollbar; die Kopie für die Endlosschleife entsteht erst im Browser).
 - Dichte Tabellen, wo Platz ist: Entdecken nutzt Container Queries (Liste → Tabelle ab 42 rem → zusätzliche Spalten ab 64 rem), statt starrer Breakpoints, weil die Filterspalte die verfügbare Breite bestimmt.
 - Modern bleibt: Spring-Animationen, View Transitions, Glass-Leisten, runde Ecken (etwas kleiner), iOS-Tab-Leiste auf dem Handy. Kontraste weiterhin WCAG AA in beiden Themes (axe-geprüft); der Puls des Live-Punkts läuft über `transform`/`opacity` (keine Dauer-Repaints).
+
+## D13 – Laden unter Gratis-Kontingenten
+- Befund beim Test mit nachgebildeten Anbietern und Gratis-Limits (Twelve Data 8/Min.): Der erste Aufruf der Startseite wartete ~2 Min. 45 Sek. auf Rate-Limits und zeigte trotzdem nur 69 von 307 Werten.
+- Lösung: Die Übersicht lädt mit Wartebudget 0 („nimm, was sofort geht“, per `AsyncLocalStorage` an alle Anbieteraufrufe weitergereicht) → erster Aufruf ~8 s inkl. Kompilieren. Ein Hintergrund-Lader holt fehlende Werte nacheinander im Rahmen der Limits (Wartebudget 20 s je Abruf, damit Detailseiten Vorrang haben). Solange Werte fehlen, wird die Übersicht alle 30 s statt alle 3 Min. neu zusammengesetzt (wertabhängige Cache-Laufzeit).
+- Ein nur verschobener Abruf (Kontingent erschöpft) gilt nicht als „veraltet“ – sonst stünde mit Gratis-Tarifen dauerhaft der Hinweis „Daten möglicherweise veraltet“ da.
+
+## D14 – Echtdaten-Modus testbar ohne Schlüssel
+- `scripts/fake-providers.mjs` bildet Finnhub (REST + Trade-WebSocket) und Twelve Data im dokumentierten Format nach; `npm run test:realmode` startet die App dagegen und prüft im Browser: Status „Echtzeit“, angezeigter Kurs = letzter Trade, eine einzige Anbieter-Verbindung für alle Tabs, Abo-Grenze, XETRA per gekennzeichnetem Demo-Fallback, nicht gescannte Werte, Ausfall („Verzögert“, letzter Kurs bleibt) und selbstständige Neuverbindung.
+- Dabei gefunden und behoben: Nach einem Verbindungsabbruch hätte die App weiter „Echtzeit“ gemeldet. „Echtzeit“ gilt jetzt nur bei tatsächlich verbundenem Relay; der Stream meldet Moduswechsel laufend.
+- Anbieter-Adressen sind dafür per Umgebungsvariable überschreibbar (`FINNHUB_BASE_URL`, `FINNHUB_WS_URL`, `TWELVEDATA_BASE_URL`).

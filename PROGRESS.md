@@ -15,14 +15,15 @@ Laufendes Fortschrittsprotokoll für „Signal“. Neueste Einträge oben.
 | Screens: Start, Heatmap, Entdecken, Detail, Watchlist, Suche | ✅ |
 | Zustände: Laden, Leer, Fehler, Veraltet, Nicht gefunden (+ „nichts Auffälliges“, Segment ohne Daten) | ✅ |
 | E2E (Playwright, mobil + Desktop) inkl. Live-Ticks und axe WCAG 2.2 AA in beiden Themes | ✅ 40 Tests |
-| Unit-Tests (Vitest) | ✅ 124 Tests |
+| Unit-Tests (Vitest) | ✅ 129 Tests |
+| Echtdaten-Modus gegen nachgebildete Anbieter (`npm run test:realmode`) | ✅ 21 Prüfungen |
 | Screenshots 390/1440 × Dunkel/Hell (17 Motive) | ✅ `/screenshots` |
 | Lighthouse mobil (Performance ≥ 90, Accessibility ≥ 95) | ✅ Perf 93–96, A11y 100 |
 | README, `.env.example`, DECISIONS (D9–D12 neu) | ✅ |
 
 ## Offene Punkte / Ideen
 
-- Finnhub-WebSocket-Relay ist gegen das dokumentierte Nachrichtenformat getestet (Parser), aber nicht live (Proxy blockiert Anbieter). Vor Produktivbetrieb kurz mit echtem Schlüssel prüfen.
+- Finnhub-WebSocket-Relay ist gegen nachgebildete Anbieter Ende-zu-Ende getestet (`npm run test:realmode`), aber nicht gegen den echten Dienst (Proxy blockiert Anbieter). Vor Produktivbetrieb kurz mit echtem Schlüssel prüfen.
 - SSE setzt eine streamende Hosting-Umgebung voraus (Node-Server); bei Serverless-Plattformen begrenzen Laufzeitlimits die Stream-Dauer (EventSource verbindet neu).
 - Indexzugehörigkeit MDAX/SDAX und Marktkapitalisierungen sind Näherungen – quartalsweise prüfen.
 
@@ -31,6 +32,8 @@ Laufendes Fortschrittsprotokoll für „Signal“. Neueste Einträge oben.
 - ApeWisdom-Basislinie braucht einige Tage eigener Historie, bis der Buzz-Faktor aussagekräftig ist.
 
 ## Log
+
+- **Komplett-Test des Echtdaten-Modus (09/2026):** nachgebildete Anbieter (Finnhub REST + WebSocket, Twelve Data), `npm run test:realmode` mit 21 Prüfungen im Browser; Unit-Tests für das WebSocket-Relay (Abos, Referenzzählung, Top-N, Backoff, Leerlauf). Behoben: „Echtzeit“ trotz getrennter Verbindung; erster Seitenaufruf mit Gratis-Limits dauerte ~2 Min. 45 Sek. → jetzt ~8 s, Rest lädt im Hintergrund (D13).
 
 - **Erweiterung „breit, relevant, live, Terminal-Look“ (09/2026):**
   - Universum auf 531 Werte erweitert (US Mid/Small Caps, weitere Large Caps, MDAX, SDAX); Größenklasse aus Marktkapitalisierung, Index für XETRA-Werte; Mock nach Größenklasse kalibriert. `SCAN_UNIVERSE` für echte Provider (Standard Mega/Large + DAX), nicht gescannte Werte per `getRows` nachladbar.
