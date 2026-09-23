@@ -91,12 +91,13 @@ describe("Erwähnungs-Spike", () => {
     expect(c.score).toBe(100);
     expect(c.detail).toMatch(/so viele Erwähnungen/);
     expect(c.metrics.ratio).toBeCloseTo(4, 0);
+    expect(c.metrics.baselineStd).toBeCloseTo(25, 0);
   });
 
   it("z-Score ist linear bis zur Kappung", () => {
     const flat = Array.from({ length: 31 }, () => 100);
-    // σ = 0 → Untergrenze √100 = 10; heute 120 → z = 2 → 50 Punkte bei Kappung 4
-    const c = scoreMentions({ ...baseInputs(), mentionsDaily: withLast(flat, 120) });
+    // σ = 0 → Untergrenze max(√100, 0,25·100) = 25; heute 150 → z = 2 → 50 Punkte bei Kappung 4
+    const c = scoreMentions({ ...baseInputs(), mentionsDaily: withLast(flat, 150) });
     expect(c.metrics.z).toBeCloseTo(2);
     expect(c.score).toBeCloseTo(50);
   });
@@ -257,6 +258,19 @@ describe("Gesamtsignal", () => {
     expect(s.bias).toBeLessThan(0);
   });
 
+  it("Typ folgt dem ungewöhnlichsten Faktor, nicht dem Gewicht", () => {
+    const base = baseInputs();
+    const avgVol = mean(base.volumes.slice(-21, -1));
+    const s = computeSignal({
+      ...base,
+      mentionsDaily: withLast(base.mentionsDaily, 150),
+      volumes: withLast(base.volumes, avgVol * 3.2),
+    });
+    expect(s.type).toBe("volume");
+    const news = computeSignal({ ...base, newsDaily: [...base.newsDaily.slice(0, -2), 12, 12] });
+    expect(news.type).toBe("news");
+  });
+
   it("ist deterministisch", () => {
     expect(computeSignal(baseInputs())).toEqual(computeSignal(baseInputs()));
   });
@@ -267,6 +281,16 @@ describe("Gesamtsignal", () => {
     expect(s.confidence).toBe("niedrig");
     expect(s.caveats.join(" ")).toMatch(/Ohne Daten/);
     expect(Number.isFinite(s.bias)).toBe(true);
+  });
+
+  it("verteilt Gewichte fehlender Komponenten auf die übrigen", () => {
+    const base = baseInputs();
+    const s = computeSignal({ ...base, sentimentDaily: base.sentimentDaily.map(() => null) });
+    const missing = s.components.filter((c) => !c.available);
+    expect(missing.map((c) => c.key).sort()).toEqual(["sentimentLevel", "sentimentShift"]);
+    missing.forEach((c) => expect(c.weight).toBe(0));
+    expect(s.components.reduce((a, c) => a + c.weight, 0)).toBeCloseTo(1, 10);
+    expect(s.caveats.join(" ")).toMatch(/verteilt/);
   });
 
   it("respektiert eine eigene Konfiguration", () => {

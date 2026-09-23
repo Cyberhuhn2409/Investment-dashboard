@@ -37,8 +37,9 @@ export function scoreMentions(inputs: SignalInputs, cfg: SignalConfig = SIGNAL_C
   const today = series[series.length - 1] ?? 0;
   const baseline = tail(series.slice(0, -1), cfg.windows.mentionBaselineDays);
   const m = mean(baseline);
-  // Untergrenze: Poisson-Streuung √μ bzw. 1 – verhindert Ausreißer bei ruhigen Reihen.
-  const s = Math.max(stdev(baseline), Math.sqrt(Math.max(m, 0)), 1);
+  // Untergrenzen: Poisson-Streuung √μ, Mindest-Variationskoeffizient und 1 –
+  // verhindern Ausreißer bei ruhigen Reihen.
+  const s = Math.max(stdev(baseline), Math.sqrt(Math.max(m, 0)), cfg.caps.mentionsMinCv * m, 1);
   const z = (today - m) / s;
   const ratio = today / Math.max(m, 1);
   let score = clamp01(z / cfg.caps.mentionsZ) * 100;
@@ -237,32 +238,48 @@ const TYPE_HEADLINE: Record<SignalType, string> = {
   news: "Nachrichtenwelle",
 };
 
+/**
+ * Signaltyp = der ungewöhnlichste Faktor (höchster Teilscore). Die beiden
+ * Stimmungs-Komponenten zählen gemeinsam als „Stimmungswandel“. Bei (nahezu)
+ * gleichem Teilscore entscheidet der größere Beitrag zum Gesamtscore.
+ */
+export function dominantType(components: ScoreComponent[]): SignalType {
+  const byType = new Map<SignalType, { score: number; points: number }>();
+  for (const c of components) {
+    if (!c.available) continue;
+    const t = COMPONENT_TO_TYPE[c.key];
+    const prev = byType.get(t) ?? { score: 0, points: 0 };
+    byType.set(t, { score: Math.max(prev.score, c.score), points: prev.points + c.points });
+  }
+  let type: SignalType = "buzz";
+  let best = { score: -1, points: -1 };
+  for (const [t, v] of byType) {
+    const clearlyHigher = v.score > best.score + 2;
+    const tieButBigger = Math.abs(v.score - best.score) <= 2 && v.points > best.points;
+    if (clearlyHigher || tieButBigger) {
+      best = v;
+      type = t;
+    }
+  }
+  return type;
+}
+
 export function computeSignal(inputs: SignalInputs, cfg: SignalConfig = SIGNAL_CONFIG): Signal {
-  const weights = normalizeWeights(cfg.weights);
-  const components: ScoreComponent[] = COMPONENT_KEYS.map((key) => {
-    const raw = SCORERS[key](inputs, cfg);
-    const score = Number.isFinite(raw.score) ? clamp(raw.score, 0, 100) : 0;
-    const weight = weights[key];
-    return { ...raw, score, label: COMPONENT_META[key].label, weight, points: weight * score };
+  const raws = COMPONENT_KEYS.map((key) => SCORERS[key](inputs, cfg));
+  // Gewichte nur über verfügbare Komponenten normieren: Fehlt eine Datenquelle,
+  // verteilt sich ihr Gewicht anteilig auf die übrigen (Hinweis in `caveats`).
+  const baseWeights = normalizeWeights(cfg.weights);
+  const availableWeight = raws.reduce((acc, r) => acc + (r.available ? baseWeights[r.key] : 0), 0);
+  const components: ScoreComponent[] = raws.map((raw) => {
+    const score = raw.available && Number.isFinite(raw.score) ? clamp(raw.score, 0, 100) : 0;
+    const weight = raw.available && availableWeight > 0 ? baseWeights[raw.key] / availableWeight : 0;
+    return { ...raw, score, label: COMPONENT_META[raw.key].label, weight, points: weight * score };
   });
   const byKey = Object.fromEntries(components.map((c) => [c.key, c])) as Record<ComponentKey, ScoreComponent>;
 
   const total = clamp(Math.round(components.reduce((acc, c) => acc + c.points, 0)), 0, 100);
 
-  // Dominanter Typ: Stimmung-Komponenten werden zusammengefasst.
-  const typePoints = new Map<SignalType, number>();
-  for (const c of components) {
-    const t = COMPONENT_TO_TYPE[c.key];
-    typePoints.set(t, (typePoints.get(t) ?? 0) + c.points);
-  }
-  let type: SignalType = "buzz";
-  let best = -1;
-  for (const [t, p] of typePoints) {
-    if (p > best) {
-      best = p;
-      type = t;
-    }
-  }
+  const type = dominantType(components);
 
   const bias = computeBias(byKey, cfg);
   const direction = directionOf(bias, cfg);
@@ -277,7 +294,10 @@ export function computeSignal(inputs: SignalInputs, cfg: SignalConfig = SIGNAL_C
   if (byKey.mentions.metrics.thin === 1)
     caveats.push("Wenige Erwähnungen – schon kleine Ausschläge wirken groß. Buzz-Anteil wurde gedeckelt.");
   const missing = components.filter((c) => !c.available);
-  if (missing.length > 0) caveats.push(`Ohne Daten: ${missing.map((c) => c.label).join(", ")}.`);
+  if (missing.length > 0)
+    caveats.push(
+      `Ohne Daten: ${missing.map((c) => c.label).join(", ")}. Das Gewicht wurde auf die übrigen Faktoren verteilt.`,
+    );
 
   const headline = `${TYPE_HEADLINE[type]} mit ${DIRECTION_PHRASE[direction]}`;
 

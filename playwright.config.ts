@@ -24,6 +24,6 @@ export default defineConfig({
     url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    env: { MOCK_NOW: "2026-09-23T14:05:00Z" },
+    env: { MOCK_NOW: "2026-09-23T18:30:00Z" },
   },
 });

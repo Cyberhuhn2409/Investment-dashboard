@@ -21,6 +21,12 @@ export interface SignalConfig {
   caps: {
     /** z-Score der Erwähnungen ggü. Basislinie. */
     mentionsZ: number;
+    /**
+     * Mindest-Variationskoeffizient der Erwähnungen. Social-Zählungen streuen
+     * stärker als Poisson; ohne Untergrenze würden ruhige Phasen jeden kleinen
+     * Ausschlag zum Extremwert machen.
+     */
+    mentionsMinCv: number;
     /** Absolutes Stimmungsniveau (Skala −1…+1). */
     sentimentLevel: number;
     /** Absolute Stimmungsänderung ggü. Basislinie. */
@@ -77,6 +83,7 @@ export const SIGNAL_CONFIG: SignalConfig = {
   },
   caps: {
     mentionsZ: 4,
+    mentionsMinCv: 0.25,
     sentimentLevel: 0.5,
     sentimentShift: 0.35,
     momentumZ: 2.5,
@@ -93,7 +100,7 @@ export const SIGNAL_CONFIG: SignalConfig = {
     newsRecentDays: 2,
   },
   thresholds: {
-    flagged: 55,
+    flagged: 60,
     strong: 75,
     directionBias: 0.12,
     minBaselineMentions: 5,
