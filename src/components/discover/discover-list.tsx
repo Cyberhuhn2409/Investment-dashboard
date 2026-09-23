@@ -23,6 +23,7 @@ import { ScoreRing } from "../ui/score-ring";
 import { Sheet } from "../ui/sheet";
 import { Sparkline } from "../ui/sparkline";
 import { FilterPanel, TypeChips } from "./filter-panel";
+import { LinkPending } from "../ui/link-pending";
 
 const PAGE = 40;
 
@@ -149,6 +150,7 @@ export function DiscoverList({ rows }: { rows: DiscoverRow[] }) {
                       />
                       <span className="tnum hidden text-[0.75rem] text-fg-2 sm:inline">{formatPrice(r.price, r.currency)}</span>
                     </div>
+                    <LinkPending />
                     <div className="flex shrink-0 flex-col items-center gap-1">
                       <ScoreRing score={r.score} size={40} stroke={3.5} />
                       <ChangeText value={r.d1} className="text-[0.75rem]" arrow={false} />

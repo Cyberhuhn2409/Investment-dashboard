@@ -8,6 +8,7 @@ import { ChangeText } from "./ui/change";
 import { Monogram } from "./ui/monogram";
 import { ScoreRing } from "./ui/score-ring";
 import { Sparkline } from "./ui/sparkline";
+import { LinkPending } from "./ui/link-pending";
 
 /** Karte für ein Top-Signal (Start). Monogramm + Titel morphen in den Detail-Kopf. */
 export function SignalCard({ row, className = "" }: { row: InstrumentRow; className?: string }) {
@@ -18,6 +19,7 @@ export function SignalCard({ row, className = "" }: { row: InstrumentRow; classN
       className={`press group relative flex flex-col rounded-[var(--radius-card)] bg-surface p-4 shadow-[var(--shadow)] hover:bg-surface-2/70 ${className}`}
       aria-label={`${row.name}: Signal-Score ${row.signal.score}, ${row.signal.headline}`}
     >
+      <LinkPending />
       <div className="flex items-start gap-3">
         <ViewTransition name={sharedName("logo", row.symbol)} share="morph" default="none">
           <Monogram ticker={row.ticker} sector={row.sector} size={44} />

@@ -6,6 +6,7 @@ import { instrumentHref, sharedName } from "@/lib/view-transition";
 import { ChangePill } from "./ui/change";
 import { Monogram } from "./ui/monogram";
 import { Sparkline } from "./ui/sparkline";
+import { LinkPending } from "./ui/link-pending";
 
 /**
  * Listenzeile für einen Wert. `shared` aktiviert den Shared-Element-Übergang
@@ -46,6 +47,7 @@ export function InstrumentRowItem({
       {spark && (
         <Sparkline values={row.spark} width={64} height={28} className="hidden shrink-0 sm:block" baseline={row.spark[0]} />
       )}
+      <LinkPending />
       {trailing ?? (
         <div className="flex shrink-0 flex-col items-end gap-1">
           <span className="tnum text-[0.9375rem] font-medium">{formatPrice(row.price, row.currency)}</span>

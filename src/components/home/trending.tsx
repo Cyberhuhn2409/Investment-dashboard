@@ -3,6 +3,7 @@ import { formatInteger, formatNumber, formatPercent } from "@/lib/format";
 import type { InstrumentRow } from "@/lib/types";
 import { instrumentHref } from "@/lib/view-transition";
 import { Monogram } from "../ui/monogram";
+import { LinkPending } from "../ui/link-pending";
 
 export function SentimentMeter({ value, className = "" }: { value: number | null; className?: string }) {
   if (value === null) return <span className={`text-[0.75rem] text-fg-3 ${className}`}>keine Daten</span>;
@@ -58,6 +59,7 @@ export function Trending({ rows }: { rows: InstrumentRow[] }) {
               </span>
               <SentimentMeter value={row.sentiment} />
             </div>
+            <LinkPending />
           </Link>
         </li>
       ))}

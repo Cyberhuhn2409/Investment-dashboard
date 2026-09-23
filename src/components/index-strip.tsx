@@ -15,6 +15,8 @@ export function IndexStrip({ indices }: { indices: IndexRow[] }) {
     <ul
       className="no-scrollbar relative -mb-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0"
       aria-label="Indizes"
+      // Horizontal scrollbar → per Tastatur erreichbar (Pfeiltasten scrollen)
+      tabIndex={0}
     >
       {indices.map((idx) => (
         <li

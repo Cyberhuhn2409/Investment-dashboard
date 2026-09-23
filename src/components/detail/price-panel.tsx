@@ -419,17 +419,16 @@ function ChartCanvas({
   }, [data, showMentions, baseline, ready, theme]);
 
   return (
-    <div
-      ref={container}
-      className="h-[15rem] w-full select-none lg:h-[21rem]"
-      style={{ touchAction: "pan-y" }}
-      role="img"
-      aria-label={`Kursverlauf: ${data.points.length} Datenpunkte. Letzter Wert ${formatNumber(
-        data.points[data.points.length - 1]?.v ?? NaN,
-        2,
-      )}.`}
-    >
-      {!ready && <div className="skeleton h-full w-full rounded-none" aria-hidden="true" />}
-    </div>
+    <>
+      <p className="sr-only">
+        {`Kursverlauf mit ${data.points.length} Datenpunkten von ${formatNumber(data.points[0]?.v ?? NaN, 2)} bis ${formatNumber(
+          data.points[data.points.length - 1]?.v ?? NaN,
+          2,
+        )}. Genaue Werte stehen in den Kennzahlen.`}
+      </p>
+      <div ref={container} className="h-[15rem] w-full select-none lg:h-[21rem]" style={{ touchAction: "pan-y" }}>
+        {!ready && <div className="skeleton h-full w-full rounded-none" aria-hidden="true" />}
+      </div>
+    </>
   );
 }

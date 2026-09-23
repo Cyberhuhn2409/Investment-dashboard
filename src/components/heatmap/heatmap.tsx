@@ -35,7 +35,7 @@ interface Node {
   children?: Node[];
 }
 
-const SECTOR_HEADER = 18;
+const SECTOR_HEADER = 24;
 
 function tileValue(tile: HeatTile, metric: HeatMetric, period: HeatPeriod): number | null {
   if (metric === "price") return period === "1D" ? tile.d1 : period === "1W" ? tile.w1 : tile.m1;
@@ -192,6 +192,7 @@ export function Heatmap({ tiles }: { tiles: HeatTile[] }) {
             {layout.sectors.map((sec) => {
               const id = sec.data.name as SectorId;
               const w = sec.x1 - sec.x0;
+              if (w < 28) return null;
               return (
                 <m.button
                   key={`sec-${id}`}
@@ -201,7 +202,7 @@ export function Heatmap({ tiles }: { tiles: HeatTile[] }) {
                   initial={false}
                   animate={{ x: sec.x0, y: sec.y0, width: w, opacity: 1 }}
                   transition={spring}
-                  className="absolute left-0 top-0 z-10 flex h-[18px] items-center truncate px-1 text-left text-[0.6875rem] font-semibold uppercase tracking-wide text-fg-2 enabled:hover:text-fg"
+                  className="absolute left-0 top-0 z-10 flex h-6 items-center truncate px-1 text-left text-[0.6875rem] font-semibold uppercase tracking-wide text-fg-2 enabled:hover:text-fg"
                   aria-label={zoom ? sectorLabel(id) : `${sectorLabel(id)} vergrößern`}
                 >
                   {w > 40 ? sectorLabel(id) : ""}
@@ -214,6 +215,7 @@ export function Heatmap({ tiles }: { tiles: HeatTile[] }) {
                 const w = leaf.x1 - leaf.x0;
                 const h = leaf.y1 - leaf.y0;
                 const v = tileValue(tile, metric, period);
+                const tiny = w < 24 || h < 24;
                 const big = w >= 120 && h >= 80;
                 const fs = big ? Math.min(22, Math.max(13, Math.sqrt(w * h) / 7)) : 11.5;
                 // Nur anzeigen, was vollständig passt (grobe Breitenschätzung der Systemschrift)
@@ -230,7 +232,18 @@ export function Heatmap({ tiles }: { tiles: HeatTile[] }) {
                     transition={spring}
                     className="absolute left-0 top-0"
                   >
-                    <Link
+                    {tiny ? (
+                      // Winzige Kacheln (< 24 px) sind keine eigenen Ziele: Tippen vergrößert den Sektor.
+                      <div
+                        aria-hidden="true"
+                        onClick={() => setZoom(tile.sec)}
+                        className="h-full w-full cursor-zoom-in rounded-[2px] transition-[background-color] duration-300"
+                        style={{ backgroundColor: heatColor(metric, v, theme, period) }}
+                        data-testid="heatmap-tile"
+                        data-symbol={tile.s}
+                      />
+                    ) : (
+                      <Link
                       href={instrumentHref(tile.s)}
                       transitionTypes={["nav-forward"]}
                       aria-label={`${tile.n} (${tile.t}): ${metricName(metric, period)} ${valueLabel(v, metric)}`}
@@ -255,6 +268,7 @@ export function Heatmap({ tiles }: { tiles: HeatTile[] }) {
                         </span>
                       )}
                     </Link>
+                    )}
                   </m.div>
                 );
               })}
