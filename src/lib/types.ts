@@ -143,6 +143,8 @@ export interface InstrumentDetail {
   news: NewsItem[];
   summary: DiscussionSummary | null;
   status: DataStatus;
+  /** Welche Teile simuliert sind (Kennzeichnung „Beispiel“ nur dort) */
+  demoParts: { price: boolean; social: boolean; news: boolean };
 }
 
 /** Live-Kurs (Server-Sent Events `/api/live`). Kurze Feldnamen halten die Nachrichten klein. */

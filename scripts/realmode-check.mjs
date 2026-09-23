@@ -97,6 +97,9 @@ try {
   );
   check("Relay hat NVDA abonniert", stats.subscribed.includes("NVDA"), `abonniert: ${stats.subscribed.join(", ")}`);
   await page.screenshot({ path: `${OUT}/detail-echtzeit.png` });
+  check("Detailseite: „Teils Demo“ statt „Demo“ (Kurs echt, Social simuliert)", await page.getByText("Teils Demo").first().isVisible());
+  const newsDemo = await page.getByRole("heading", { name: "Nachrichten" }).locator("xpath=../../..").getByText("Beispiel").count();
+  check("Echte Nachrichten nicht als „Beispiel“ markiert", newsDemo === 0, `${newsDemo} Markierungen`);
 
   // 3) Live-API: US in Echtzeit, XETRA per Demo-Fallback, Indizes über ETF-Proxy
   const live = await (await fetch(`${BASE}/api/live?s=NVDA,SAP.DE,SPX&format=json`)).json();

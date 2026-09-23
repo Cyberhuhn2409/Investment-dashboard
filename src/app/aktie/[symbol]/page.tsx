@@ -126,7 +126,7 @@ export default async function InstrumentPage(props: PageProps<"/aktie/[symbol]">
                   discussions={detail.discussions}
                   summary={detail.summary}
                   reference={status.generatedAt}
-                  demo={row.demo}
+                  demo={detail.demoParts.social}
                 />
               </div>
             </Section>
@@ -154,7 +154,7 @@ export default async function InstrumentPage(props: PageProps<"/aktie/[symbol]">
 
             <Section title="Nachrichten" id="nachrichten">
               <div className="px-4 lg:px-0">
-                <NewsList items={detail.news} reference={status.generatedAt} demo={row.demo} />
+                <NewsList items={detail.news} reference={status.generatedAt} demo={detail.demoParts.news} />
               </div>
             </Section>
           </div>

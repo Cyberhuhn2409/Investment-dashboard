@@ -644,7 +644,8 @@ export async function getInstrumentDetail(symbol: string): Promise<InstrumentDet
     asOf: scenarioStale ? now - 3 * HOUR : quote.time,
     generatedAt: now,
     stale: scenarioStale || bundle.stale || fundamentals.stale || social.stale || news.stale,
-    demo: bundle.row.demo,
+    // „Demo“ nur, wenn alle Quellen simuliert sind – sonst zeigt die Statuszeile „Teils Demo“
+    demo: ps.price(instrument).mock && ps.social(instrument).mock && ps.news(instrument).mock,
     marketOpen: marketOpenMap(now),
     sources: [
       ps.price(instrument),
@@ -669,6 +670,11 @@ export async function getInstrumentDetail(symbol: string): Promise<InstrumentDet
     news: news.value.items.slice(0, 10),
     summary,
     status,
+    demoParts: {
+      price: ps.price(instrument).mock,
+      social: ps.social(instrument).mock,
+      news: ps.news(instrument).mock,
+    },
   };
 }
 
