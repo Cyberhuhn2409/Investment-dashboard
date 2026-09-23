@@ -33,6 +33,7 @@ export async function GET(request: Request) {
   const timers: ReturnType<typeof setInterval>[] = [];
   let closed = false;
   let busy = false;
+  let sentMode = "";
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -59,6 +60,12 @@ export async function GET(request: Request) {
         if (busy || closed) return;
         busy = true;
         try {
+          // Modus kann wechseln (z. B. Relay verbindet sich oder bricht ab)
+          const mode = liveMode();
+          if (mode !== sentMode) {
+            sentMode = mode;
+            write(`event: mode\ndata: ${JSON.stringify({ mode })}\n\n`);
+          }
           const ticks = await liveTicks(keys);
           const changed = ticks.filter((t) => {
             const sig = `${t.p}|${t.m}`;
@@ -74,7 +81,7 @@ export async function GET(request: Request) {
         }
       };
 
-      write(`retry: 3000\nevent: mode\ndata: ${JSON.stringify({ mode: liveMode() })}\n\n`);
+      write(`retry: 3000\n\n`);
       void push();
       timers.push(setInterval(push, liveIntervalMs()));
       timers.push(setInterval(() => write(`: ping\n\n`), HEARTBEAT_MS));

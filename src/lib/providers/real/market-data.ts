@@ -33,7 +33,8 @@ async function guard<T>(p: Promise<T>): Promise<T> {
 
 export function createFinnhub(apiKey: string) {
   const limiter = getLimiter("finnhub", { perMinute: Number(process.env.FINNHUB_RPM ?? 55) });
-  const base = "https://finnhub.io/api/v1";
+  // Überschreibbar für Tests mit nachgebildetem Anbieter (scripts/fake-providers.mjs) oder Proxys
+  const base = process.env.FINNHUB_BASE_URL ?? "https://finnhub.io/api/v1";
   const get = <T>(path: string, revalidate?: number) =>
     fetchJson<T>(`${base}${path}`, { limiter, headers: { "X-Finnhub-Token": apiKey }, revalidate });
   const supports = (i: Instrument) => i.region === "US";
@@ -90,7 +91,7 @@ export function createTwelveData(apiKey: string) {
     maxWaitMs: 12_000,
   });
   const xetra = process.env.TWELVEDATA_XETRA === "true";
-  const base = "https://api.twelvedata.com";
+  const base = process.env.TWELVEDATA_BASE_URL ?? "https://api.twelvedata.com";
   const sym = (i: Instrument) =>
     i.region === "DE" ? `symbol=${encodeURIComponent(i.ticker)}&exchange=XETR` : `symbol=${encodeURIComponent(i.ticker)}`;
   const get = (path: string, revalidate?: number) =>

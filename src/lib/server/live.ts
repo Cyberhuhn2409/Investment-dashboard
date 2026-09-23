@@ -60,14 +60,17 @@ function stream(): FinnhubStream | null {
 
 export type LiveMode = "sim" | "realtime" | "delayed";
 
+/** Aktueller Modus – „Echtzeit“ nur, solange das WebSocket-Relay wirklich verbunden ist. */
 export function liveMode(): LiveMode {
   if (getProviders().demo) return "sim";
-  return stream() ? "realtime" : "delayed";
+  return stream()?.connected ? "realtime" : "delayed";
 }
 
 /** Intervall, in dem der Stream neue Kurse prüft (ms). */
 export function liveIntervalMs(): number {
-  return liveMode() === "delayed" ? 15_000 : 1_000;
+  if (getProviders().demo) return 1_000;
+  // Mit Relay auch während des Verbindungsaufbaus im Sekundentakt prüfen
+  return stream() ? 1_000 : 15_000;
 }
 
 function streamSymbol(key: string): string | null {
@@ -166,7 +169,8 @@ async function realTick(key: string, fresh: boolean, now: number): Promise<LiveT
     if (!row) return null;
     const prev = row.value - row.change;
     const trade = def.region === "US" ? s?.latest(def.proxy) : undefined;
-    if (trade) return toTick(key, trade.price, prev, trade.time, "rt", row.marketOpen);
+    // Letzter Trade bleibt bei Verbindungsabbruch sichtbar, gilt dann aber als verzögert
+    if (trade) return toTick(key, trade.price, prev, trade.time, s?.connected ? "rt" : "delayed", row.marketOpen);
     return toTick(key, row.value, prev, now, "delayed", row.marketOpen);
   }
   const inst = getInstrument(key) as Instrument;
@@ -175,7 +179,8 @@ async function realTick(key: string, fresh: boolean, now: number): Promise<LiveT
   if (!quote) return null;
   const trade = inst.region === "US" ? s?.latest(inst.ticker) : undefined;
   if (trade && trade.time >= quote.time) {
-    return toTick(key, trade.price, quote.prevClose, trade.time, "rt", latestSession(inst.region, now).isOpen);
+    const q = s?.connected ? "rt" : "delayed";
+    return toTick(key, trade.price, quote.prevClose, trade.time, q, latestSession(inst.region, now).isOpen);
   }
   return toTick(key, quote.price, quote.prevClose, quote.time, "delayed", quote.marketOpen);
 }

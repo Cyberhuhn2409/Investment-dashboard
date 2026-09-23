@@ -97,7 +97,8 @@ export class FinnhubStream {
     if (!FinnhubStream.available()) return;
     let ws: WebSocket;
     try {
-      ws = new WebSocket(`wss://ws.finnhub.io?token=${encodeURIComponent(this.apiKey)}`);
+      const url = process.env.FINNHUB_WS_URL ?? "wss://ws.finnhub.io";
+      ws = new WebSocket(`${url}?token=${encodeURIComponent(this.apiKey)}`);
     } catch {
       this.scheduleReconnect();
       return;
