@@ -36,7 +36,7 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const [recent, setRecent] = useState<string[]>([]);
+  const [recent] = useState<string[]>(readRecent);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
@@ -55,9 +55,6 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
   useEffect(() => {
     if (!open) return;
     restoreRef.current = document.activeElement as HTMLElement | null;
-    setRecent(readRecent());
-    setQuery("");
-    setActive(0);
     const t = window.setTimeout(() => inputRef.current?.focus(), 10);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";

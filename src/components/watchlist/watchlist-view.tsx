@@ -15,16 +15,15 @@ import { Monogram } from "../ui/monogram";
 import { ScoreRing } from "../ui/score-ring";
 import { LoadingAnnouncement, SkeletonList } from "../ui/skeleton";
 
-type State =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "error"; message: string }
-  | { kind: "ready"; rows: InstrumentRow[]; status: DataStatus };
+type Result =
+  | { key: string; kind: "error"; message: string }
+  | { key: string; kind: "ready"; rows: InstrumentRow[]; status: DataStatus };
 
 export function WatchlistView({ suggestions }: { suggestions: InstrumentRow[] }) {
   const hydrated = useHydrated();
   const { symbols, remove, add } = useWatchlist();
-  const [state, setState] = useState<State>({ kind: "idle" });
+  const [result, setResult] = useState<Result | null>(null);
+  const [lastReady, setLastReady] = useState<Extract<Result, { kind: "ready" }> | null>(null);
   const [editing, setEditing] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const key = symbols.join(",");
@@ -32,18 +31,23 @@ export function WatchlistView({ suggestions }: { suggestions: InstrumentRow[] })
   useEffect(() => {
     if (!hydrated || key === "") return;
     const ctrl = new AbortController();
-    setState((s) => (s.kind === "ready" ? s : { kind: "loading" }));
     fetch(`/api/rows?symbols=${encodeURIComponent(key)}`, { signal: ctrl.signal })
       .then(async (res) => {
         if (!res.ok) throw new Error("Kurse konnten nicht geladen werden.");
         const json = (await res.json()) as { rows: InstrumentRow[]; status: DataStatus };
-        setState({ kind: "ready", rows: json.rows, status: json.status });
+        const ready = { key, kind: "ready" as const, rows: json.rows, status: json.status };
+        setResult(ready);
+        setLastReady(ready);
       })
       .catch((e: unknown) => {
-        if ((e as Error).name !== "AbortError") setState({ kind: "error", message: (e as Error).message });
+        if ((e as Error).name !== "AbortError") setResult({ key, kind: "error", message: (e as Error).message });
       });
     return () => ctrl.abort();
   }, [hydrated, key, attempt]);
+
+  // Während eines Neuladens (z. B. nach dem Entfernen) die letzte Liste weiter zeigen.
+  const current = result?.key === key ? result : null;
+  const state = current ?? (lastReady ? { ...lastReady } : null);
 
   if (!hydrated) {
     return (
@@ -108,7 +112,7 @@ export function WatchlistView({ suggestions }: { suggestions: InstrumentRow[] })
     );
   }
 
-  if (state.kind === "error") {
+  if (state?.kind === "error") {
     return (
       <div role="alert" className="mx-4 rounded-[var(--radius-card)] bg-surface px-6 py-10 text-center lg:mx-0">
         <AlertIcon size={28} className="mx-auto text-warn" />
@@ -116,7 +120,10 @@ export function WatchlistView({ suggestions }: { suggestions: InstrumentRow[] })
         <p className="mt-1 text-sm text-fg-2">Deine Watchlist ist sicher gespeichert – nur die Kurse fehlen gerade.</p>
         <button
           type="button"
-          onClick={() => setAttempt((n) => n + 1)}
+          onClick={() => {
+            setResult(null);
+            setAttempt((n) => n + 1);
+          }}
           className="press mt-4 inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 font-medium text-on-accent"
         >
           <RefreshIcon size={18} />
@@ -126,7 +133,7 @@ export function WatchlistView({ suggestions }: { suggestions: InstrumentRow[] })
     );
   }
 
-  if (state.kind !== "ready") {
+  if (!state || state.kind !== "ready") {
     return (
       <div className="px-4 lg:px-0">
         <LoadingAnnouncement label="Kurse werden geladen" />

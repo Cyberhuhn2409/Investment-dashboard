@@ -1,7 +1,7 @@
 "use client";
 
 import type { IChartApi, ISeriesApi, IPriceLine, Time, TickMarkType as TickMarkTypeEnum, UTCTimestamp } from "lightweight-charts";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { formatInteger, formatNumber, formatPercent, formatShortDateTime, formatDate, TIME_ZONE } from "@/lib/format";
 import { CHART_RANGES, CHART_RANGE_LABEL, type ChartData, type ChartRange } from "@/lib/types";
 import { AnimatedNumber } from "../ui/animated-number";
@@ -65,8 +65,8 @@ export function PricePanel({
   const [error, setError] = useState<string | null>(null);
   const [scrub, setScrub] = useState<Scrub | null>(null);
   const [showMentions, setShowMentions] = useState(true);
-  const [attempt, setAttempt] = useState(0);
   const cache = useRef(new Map<ChartRange, ChartData>([[initial.range, initial]]));
+  const pending = useRef<AbortController | null>(null);
 
   const loadRange = useCallback(
     async (next: ChartRange, signal?: AbortSignal) => {
@@ -81,19 +81,36 @@ export function PricePanel({
     [symbol],
   );
 
-  useEffect(() => {
-    if (range === data.range) return;
-    const ctrl = new AbortController();
-    setLoading(true);
-    setError(null);
-    loadRange(range, ctrl.signal)
-      .then((d) => setData(d))
-      .catch((e: unknown) => {
-        if ((e as Error).name !== "AbortError") setError((e as Error).message);
-      })
-      .finally(() => setLoading(false));
-    return () => ctrl.abort();
-  }, [range, data.range, loadRange, attempt]);
+  const selectRange = useCallback(
+    (next: ChartRange) => {
+      setRange(next);
+      setScrub(null);
+      setError(null);
+      pending.current?.abort();
+      const hit = cache.current.get(next);
+      if (hit) {
+        setData(hit);
+        setLoading(false);
+        return;
+      }
+      const ctrl = new AbortController();
+      pending.current = ctrl;
+      setLoading(true);
+      loadRange(next, ctrl.signal)
+        .then((d) => {
+          if (!ctrl.signal.aborted) setData(d);
+        })
+        .catch((e: unknown) => {
+          if ((e as Error).name !== "AbortError") setError((e as Error).message);
+        })
+        .finally(() => {
+          if (pending.current === ctrl) setLoading(false);
+        });
+    },
+    [loadRange],
+  );
+
+  useEffect(() => () => pending.current?.abort(), []);
 
   // Häufige Zeiträume im Leerlauf vorladen
   useEffect(() => {
@@ -161,7 +178,7 @@ export function PricePanel({
           <div role="alert" className="absolute inset-x-4 top-1/2 -translate-y-1/2 rounded-xl bg-surface-2 px-4 py-3 text-center text-sm">
             <AlertIcon size={18} className="mx-auto mb-1 text-warn" />
             {error}
-            <button type="button" className="ml-2 font-medium text-accent" onClick={() => setAttempt((n) => n + 1)}>
+            <button type="button" className="ml-2 font-medium text-accent" onClick={() => selectRange(range)}>
               Erneut versuchen
             </button>
           </div>
@@ -175,10 +192,7 @@ export function PricePanel({
         <SegmentedControl
           label="Zeitraum"
           value={range}
-          onChange={(r) => {
-            setScrub(null);
-            setRange(r);
-          }}
+          onChange={selectRange}
           options={CHART_RANGES.map((r) => ({ value: r, label: CHART_RANGE_LABEL[r], ariaLabel: RANGE_CAPTION[r] }))}
           size="sm"
           className="w-full sm:w-auto"
@@ -222,12 +236,15 @@ function ChartCanvas({
   const [ready, setReady] = useState(false);
   const [theme, setTheme] = useState(0);
   const dataRef = useRef(data);
-  dataRef.current = data;
   const mentionsByTime = useMemo(() => new Map(data.mentions.map((m) => [m.t, m.v])), [data.mentions]);
   const mentionsRef = useRef(mentionsByTime);
-  mentionsRef.current = mentionsByTime;
   const onScrubRef = useRef(onScrub);
-  onScrubRef.current = onScrub;
+  // Aktuelle Werte für die (einmalig registrierten) Chart-Callbacks bereitstellen
+  useLayoutEffect(() => {
+    dataRef.current = data;
+    mentionsRef.current = mentionsByTime;
+    onScrubRef.current = onScrub;
+  });
 
   // Chart einmalig erzeugen (Bibliothek wird erst hier geladen)
   useEffect(() => {

@@ -34,6 +34,8 @@ export function DiscoverList({ rows }: { rows: DiscoverRow[] }) {
   // Filter aus der URL übernehmen (teilbare Links) …
   useEffect(() => {
     const f = filtersFromParams(new URLSearchParams(window.location.search));
+    // Einmalige Übernahme aus einem externen System (URL) nach der Hydration – bewusst im Effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (activeFilterCount(f) > 0 || f.sort !== "score") setFilters(f);
   }, []);
 

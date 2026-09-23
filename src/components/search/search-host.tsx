@@ -10,10 +10,13 @@ const SearchDialog = dynamic(() => import("./search-dialog").then((m) => m.Searc
 export function SearchHost() {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  // Neuer Schlüssel je Öffnen → frischer Zustand (leere Suche, aktuelle Verläufe)
+  const [session, setSession] = useState(0);
 
   useEffect(() => {
     const show = () => {
       setMounted(true);
+      setSession((n) => n + 1);
       setOpen(true);
     };
     const onKey = (e: KeyboardEvent) => {
@@ -36,5 +39,5 @@ export function SearchHost() {
   }, []);
 
   if (!mounted) return null;
-  return <SearchDialog open={open} onClose={() => setOpen(false)} />;
+  return <SearchDialog key={session} open={open} onClose={() => setOpen(false)} />;
 }
