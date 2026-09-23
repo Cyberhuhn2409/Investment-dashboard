@@ -5,6 +5,8 @@ import { Sidebar } from "@/components/shell/sidebar";
 import { TabBar } from "@/components/shell/tab-bar";
 import { ServiceWorker } from "@/components/service-worker";
 import { NavTracker } from "@/components/shell/back-link";
+import { MarketBar } from "@/components/live/market-bar";
+import { clockOffsetMs } from "@/lib/server/clock";
 import { THEME_COLORS, THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -48,9 +50,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <MotionProvider>
           <div className="mx-auto flex min-h-dvh max-w-[90rem]">
             <Sidebar />
-            <main id="inhalt" className="pb-tabbar min-w-0 flex-1 lg:px-10 lg:pb-16">
-              {children}
-            </main>
+            <div className="min-w-0 flex-1">
+              <MarketBar offsetMs={clockOffsetMs()} />
+              <main id="inhalt" className="pb-tabbar min-w-0 lg:px-10 lg:pb-16">
+                {children}
+              </main>
+            </div>
           </div>
           <TabBar />
           <SearchHost />

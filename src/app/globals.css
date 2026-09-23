@@ -2,8 +2,9 @@
 
 /*
  * Signal – Design-Tokens
- * Dunkel ist Standard, Hell per data-theme="light". Alle Text-/Hintergrund-
- * Paare erfüllen WCAG AA (≥ 4,5:1 für Fließtext).
+ * Terminal-Anmutung (Bernstein-Akzent, Monospace-Zahlen, Haarlinien) mit
+ * modernen Flächen. Dunkel ist Standard, Hell per data-theme="light". Alle
+ * Text-/Hintergrund-Paare erfüllen WCAG AA (≥ 4,5:1 für Fließtext).
  */
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
@@ -13,28 +14,30 @@
 [data-theme="dark"] {
   color-scheme: dark;
   --bg: #000000;
-  --surface: #111113;
-  --surface-2: #1c1c1f;
-  --surface-3: #2a2a2e;
-  --glass: rgb(17 17 19 / 0.72);
-  --line: rgb(255 255 255 / 0.09);
-  --line-strong: rgb(255 255 255 / 0.16);
-  --fg: #f5f5f7;
-  --fg-2: #a1a1aa;
-  --fg-3: #8e8e96;
-  --accent: #9d8cff;
-  --accent-strong: #7b68ee;
-  --accent-soft: rgb(157 140 255 / 0.14);
-  --on-accent: #0b0716;
+  --surface: #0e0f11;
+  --surface-2: #17191c;
+  --surface-3: #25282d;
+  --glass: rgb(10 11 13 / 0.74);
+  --line: rgb(255 255 255 / 0.085);
+  --line-strong: rgb(255 255 255 / 0.15);
+  --fg: #f3f4f6;
+  --fg-2: #a3a7ae;
+  --fg-3: #8f949c;
+  --accent: #ffa133;
+  --accent-strong: #ff8a00;
+  --accent-soft: rgb(255 161 51 / 0.13);
+  --on-accent: #140a00;
   --up: #34d399;
   --up-soft: rgb(52 211 153 / 0.14);
+  --up-flash: rgb(52 211 153 / 0.3);
   --down: #ff6b61;
   --down-soft: rgb(255 107 97 / 0.14);
+  --down-flash: rgb(255 107 97 / 0.3);
   --warn: #ffd60a;
   --warn-soft: rgb(255 214 10 / 0.12);
   --tile-neutral: #2c2c31;
   --shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 8px 24px rgb(0 0 0 / 0.4);
-  --focus: #b9adff;
+  --focus: #ffc27a;
 }
 
 [data-theme="light"] {
@@ -49,19 +52,21 @@
   --fg: #0a0a0b;
   --fg-2: #4e4e56;
   --fg-3: #63636b;
-  --accent: #5b45e0;
-  --accent-strong: #4a35cc;
-  --accent-soft: rgb(91 69 224 / 0.1);
+  --accent: #9a4f00;
+  --accent-strong: #7d4000;
+  --accent-soft: rgb(154 79 0 / 0.1);
   --on-accent: #ffffff;
   --up: #11772f;
   --up-soft: rgb(17 119 47 / 0.1);
+  --up-flash: rgb(17 119 47 / 0.18);
   --down: #c4262e;
   --down-soft: rgb(196 38 46 / 0.09);
+  --down-flash: rgb(196 38 46 / 0.16);
   --warn: #8a5a00;
   --warn-soft: rgb(138 90 0 / 0.1);
   --tile-neutral: #66666e;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 20px rgb(0 0 0 / 0.06);
-  --focus: #5b45e0;
+  --focus: #9a4f00;
 }
 
 @theme inline {
@@ -92,7 +97,7 @@
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
   --shadow-card: var(--shadow);
-  --radius-card: 1.25rem;
+  --radius-card: 0.875rem;
 
   --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
 }
@@ -142,9 +147,28 @@
 }
 
 @layer utilities {
+  /* Zahlen: Monospace + Tabellenziffern (Terminal-Anmutung, ruhige Spalten) */
   .tnum {
-    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums slashed-zero;
     font-feature-settings: "tnum" 1;
+    letter-spacing: -0.01em;
+  }
+
+  /* Kleine Terminal-Beschriftung (Abschnitts- und Spaltenköpfe) */
+  .label-mono {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* Panel: Fläche mit Haarlinie statt Schatten */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
   }
 
   .safe-top {
@@ -213,6 +237,75 @@
   100% {
     transform: translateX(100%);
   }
+}
+
+/* Live-Ticks: kurzes Aufleuchten bei Kursänderung (Richtung zusätzlich per Pfeil/Vorzeichen) */
+@keyframes tick-up {
+  from {
+    background-color: var(--up-flash);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+@keyframes tick-down {
+  from {
+    background-color: var(--down-flash);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.tick-up,
+.tick-down {
+  border-radius: 0.25rem;
+  animation: 0.9s ease-out both;
+}
+.tick-up {
+  animation-name: tick-up;
+}
+.tick-down {
+  animation-name: tick-down;
+}
+
+/* Live-Punkt */
+@keyframes live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  70% {
+    box-shadow: 0 0 0 5px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+.live-dot {
+  display: inline-block;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: live-pulse 1.8s ease-out infinite;
+}
+
+/* Laufband: läuft endlos, pausiert bei Hover/Fokus; bei reduzierter Bewegung statisch scrollbar */
+@keyframes tape-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.tape-track {
+  display: flex;
+  width: max-content;
+  animation: tape-scroll var(--tape-duration, 80s) linear infinite;
+}
+.tape:hover .tape-track,
+.tape:focus-within .tape-track {
+  animation-play-state: paused;
 }
 
 /* Score-Ring: sanftes Einzeichnen */
@@ -325,6 +418,16 @@
     animation-delay: 0s !important;
   }
   .skeleton::after {
+    animation: none;
+  }
+  .tape-track {
+    animation: none !important;
+    transform: none !important;
+  }
+  .tape-clone {
+    display: none;
+  }
+  .live-dot {
     animation: none;
   }
 }

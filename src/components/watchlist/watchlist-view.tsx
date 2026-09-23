@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { AnimatePresence, m } from "motion/react";
 import { useEffect, useState } from "react";
-import { formatPercent, formatPrice } from "@/lib/format";
+import { formatPercent } from "@/lib/format";
 import type { DataStatus, InstrumentRow } from "@/lib/types";
 import { useHydrated, useWatchlist } from "@/lib/watchlist";
 import { AlertIcon, RefreshIcon, StarIcon } from "../icons";
 import { DataStatusLine, StaleBanner } from "../data-status";
 import { InstrumentRowItem } from "../instrument-row";
 import { SignalTypeBadge } from "../ui/badges";
-import { ChangePill } from "../ui/change";
+import { LiveChange, LivePrice } from "../live/live-values";
 import { Monogram } from "../ui/monogram";
 import { ScoreRing } from "../ui/score-ring";
 import { LoadingAnnouncement, SkeletonList } from "../ui/skeleton";
@@ -218,7 +218,9 @@ export function WatchlistView({ suggestions }: { suggestions: InstrumentRow[] })
                   spark
                   meta={
                     <span className="inline-flex items-center gap-1.5">
-                      {r.ticker}
+                      <span className="tnum text-accent">{r.ticker}</span>
+                      <span aria-hidden="true">·</span>
+                      <span>{r.exchange}</span>
                       {r.signal.flagged && (
                         <span className="rounded-full bg-accent-soft px-1.5 text-[0.6875rem] font-semibold text-accent">
                           Signal {r.signal.score}
@@ -228,8 +230,8 @@ export function WatchlistView({ suggestions }: { suggestions: InstrumentRow[] })
                   }
                   trailing={
                     <div className="flex shrink-0 flex-col items-end gap-1">
-                      <span className="tnum text-[0.9375rem] font-medium">{formatPrice(r.price, r.currency)}</span>
-                      <ChangePill value={r.changePct1D} />
+                      <LivePrice symbol={r.symbol} price={r.price} currency={r.currency} className="text-[0.9375rem] font-medium" />
+                      <LiveChange symbol={r.symbol} price={r.price} changePct={r.changePct1D} pill />
                     </div>
                   }
                 />

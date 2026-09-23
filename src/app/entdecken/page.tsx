@@ -4,13 +4,14 @@ import { DataStatusLine, StaleBanner } from "@/components/data-status";
 import { DiscoverList } from "@/components/discover/discover-list";
 import { PageHeader } from "@/components/shell/page-header";
 import type { DiscoverRow } from "@/lib/discover";
+import { moveHighlight } from "@/lib/relevance";
 import { getSnapshot } from "@/lib/server/market";
 
 export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Entdecken",
-  description: "Alle Signale filtern nach Sektor, Region, Signaltyp und Mindest-Score.",
+  description: "Relevante Werte filtern nach Größenklasse, Index, Sektor, Region, Signaltyp und Mindest-Score.",
 };
 
 function downsample(values: number[], n: number): number[] {
@@ -29,18 +30,23 @@ export default async function DiscoverPage() {
     region: r.region,
     exchange: r.exchange,
     currency: r.currency,
+    size: r.size,
+    index: r.index,
     price: r.price,
     d1: Math.round(r.changePct1D * 100) / 100,
-    spark: downsample(r.spark, 22).map((v) => Math.round(v * 100) / 100),
+    spark: downsample(r.spark, 16).map((v) => Math.round(v * 100) / 100),
     mentions: r.mentions24h,
     buzz: Math.round(r.buzzChangePct),
     sentiment: r.sentiment,
     score: r.signal.score,
     type: r.signal.type,
     direction: r.signal.direction,
-    highlight: r.signal.highlights[0] ?? "",
+    highlight:
+      r.relevant && !r.signal.flagged ? moveHighlight(r.changePct1D, r.moveZ) : (r.signal.highlights[0] ?? ""),
+    relevant: r.relevant,
+    moveZ: Math.round(r.moveZ * 10) / 10,
   }));
-  const flagged = snapshot.rows.filter((r) => r.signal.flagged).length;
+  const relevant = rows.filter((r) => r.relevant).length;
 
   return (
     <ViewTransition
@@ -54,7 +60,8 @@ export default async function DiscoverPage() {
           subtitle={
             <span className="flex flex-col gap-0.5">
               <span>
-                {rows.length} Werte · <span className="font-medium text-accent">{flagged} markiert</span> (Score ≥ 60)
+                <span className="tnum font-medium text-accent">{relevant}</span> relevant von{" "}
+                <span className="tnum">{rows.length}</span> Werten · sortiert nach Auffälligkeit
               </span>
               <DataStatusLine status={snapshot.status} />
             </span>

@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { ViewTransition } from "react";
-import { formatPrice } from "@/lib/format";
 import type { InstrumentRow } from "@/lib/types";
 import { instrumentHref, sharedName } from "@/lib/view-transition";
 import { DirectionBadge, SignalTypeBadge } from "./ui/badges";
-import { ChangeText } from "./ui/change";
+import { LiveChange, LivePrice } from "./live/live-values";
 import { Monogram } from "./ui/monogram";
 import { ScoreRing } from "./ui/score-ring";
 import { Sparkline } from "./ui/sparkline";
@@ -16,7 +15,7 @@ export function SignalCard({ row, className = "" }: { row: InstrumentRow; classN
     <Link
       href={instrumentHref(row.symbol)}
       transitionTypes={["nav-forward"]}
-      className={`press group relative flex flex-col rounded-[var(--radius-card)] bg-surface p-4 shadow-[var(--shadow)] hover:bg-surface-2/70 ${className}`}
+      className={`panel press group relative flex flex-col p-4 hover:border-line-strong hover:bg-surface-2/60 ${className}`}
       aria-label={`${row.name}: Signal-Score ${row.signal.score}, ${row.signal.headline}`}
     >
       <LinkPending />
@@ -28,8 +27,10 @@ export function SignalCard({ row, className = "" }: { row: InstrumentRow; classN
           <ViewTransition name={sharedName("title", row.symbol)} share="morph" default="none">
             <p className="truncate text-[1rem] font-semibold leading-snug">{row.name}</p>
           </ViewTransition>
-          <p className="text-[0.8125rem] text-fg-2">
-            {row.ticker} · {row.exchange}
+          <p className="flex items-center gap-1.5 text-[0.8125rem] text-fg-2">
+            <span className="tnum text-accent">{row.ticker}</span>
+            <span aria-hidden="true">·</span>
+            {row.exchange}
           </p>
         </div>
         <ScoreRing score={row.signal.score} size={46} />
@@ -53,8 +54,10 @@ export function SignalCard({ row, className = "" }: { row: InstrumentRow; classN
 
       <div className="mt-auto flex items-end justify-between gap-3 pt-3">
         <div>
-          <p className="tnum text-[1.0625rem] font-semibold">{formatPrice(row.price, row.currency)}</p>
-          <ChangeText value={row.changePct1D} className="text-[0.8125rem]" />
+          <p className="text-[1.0625rem] font-semibold">
+            <LivePrice symbol={row.symbol} price={row.price} currency={row.currency} />
+          </p>
+          <LiveChange symbol={row.symbol} price={row.price} changePct={row.changePct1D} className="text-[0.8125rem]" />
         </div>
         <Sparkline values={row.spark} width={104} height={36} baseline={row.spark[0]} />
       </div>

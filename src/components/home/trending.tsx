@@ -33,22 +33,26 @@ export function SentimentMeter({ value, className = "" }: { value: number | null
 
 export function Trending({ rows }: { rows: InstrumentRow[] }) {
   return (
-    <ol className="mx-4 divide-y divide-line overflow-hidden rounded-[var(--radius-card)] bg-surface lg:mx-0">
+    <ol className="panel mx-4 divide-y divide-line overflow-hidden lg:mx-0">
       {rows.map((row, i) => (
         <li key={row.symbol}>
           <Link
             href={instrumentHref(row.symbol)}
             transitionTypes={["nav-forward"]}
-            className="press relative flex items-center gap-3 px-4 py-3 hover:bg-surface-2/60 active:bg-surface-2"
+            className="press relative flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2/60 active:bg-surface-2"
           >
-            <span className="tnum w-4 shrink-0 text-center text-[0.875rem] font-semibold text-fg-3">
+            <span className="tnum w-5 shrink-0 text-center text-[0.75rem] text-fg-3">
               <span className="sr-only">Platz </span>
               {i + 1}
             </span>
-            <Monogram ticker={row.ticker} sector={row.sector} size={36} />
+            <Monogram ticker={row.ticker} sector={row.sector} size={32} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-[0.9375rem] font-semibold">{row.name}</p>
-              <p className="tnum truncate text-[0.8125rem] text-fg-2">{formatInteger(row.mentions24h)} Erwähnungen</p>
+              <p className="flex items-center gap-1.5 truncate text-[0.75rem] text-fg-2">
+                <span className="tnum text-accent">{row.ticker}</span>
+                <span aria-hidden="true">·</span>
+                <span className="tnum">{formatInteger(row.mentions24h)}</span> Erwähnungen
+              </p>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1">
               <span

@@ -8,6 +8,7 @@ import { AnimatedNumber } from "../ui/animated-number";
 import { SegmentedControl } from "../ui/segmented";
 import { trendClass } from "../ui/change";
 import { AlertIcon, ArrowDownIcon, ArrowUpIcon } from "../icons";
+import { flashClass, useLiveValues } from "../live/live-values";
 
 const RANGE_CAPTION: Record<ChartRange, string> = {
   "1D": "Heute",
@@ -125,8 +126,11 @@ export function PricePanel({
     };
   }, [loadRange]);
 
+  const live = useLiveValues(symbol, { price, changePct: prevClose ? (price / prevClose - 1) * 100 : 0 });
   const last = data.points[data.points.length - 1]?.v ?? price;
-  const shownValue = scrub ? scrub.v : range === "1D" ? price : last;
+  const current = live.live ? live.price : range === "1D" ? price : last;
+  const shownValue = scrub ? scrub.v : current;
+  const isOpen = live.open ?? marketOpen;
   const base = range === "1D" ? prevClose : data.baseline;
   const change = shownValue - base;
   const changePct = base ? (change / base) * 100 : 0;
@@ -141,17 +145,19 @@ export function PricePanel({
       ? formatShortDateTime(scrub.t * 1000)
       : formatDate(scrub.t * 1000)
     : range === "1D"
-      ? marketOpen
+      ? isOpen
         ? "Heute · live"
-        : "Heute"
+        : "Heute · Börse geschlossen"
       : RANGE_CAPTION[range];
 
   return (
     <section aria-label={`Kursverlauf ${name}`} className="lg:rounded-[var(--radius-card)] lg:bg-surface lg:p-6">
       <div className="px-4 lg:px-0">
-        <p className="text-[2.25rem] font-bold leading-none tracking-tight lg:text-[2.5rem]">
+        <p className="tnum text-[2.25rem] font-bold leading-none tracking-tight lg:text-[2.5rem]">
           <span className="sr-only">Kurs: </span>
-          <AnimatedNumber value={shownValue} format={formatPrice} immediate={scrub !== null} />
+          <span key={scrub ? "scrub" : live.seq} className={`-mx-1 px-1 ${scrub ? "" : flashClass(live)}`}>
+            <AnimatedNumber value={shownValue} format={formatPrice} immediate={scrub !== null} />
+          </span>
         </p>
         <p className={`mt-2 flex flex-wrap items-center gap-x-2 text-[0.9375rem] font-medium ${trendClass(change)}`}>
           <span className="tnum inline-flex items-center gap-0.5">
@@ -160,7 +166,10 @@ export function PricePanel({
             <span className="sr-only">{up ? "gestiegen um" : "gefallen um"} </span>
             {formatNumber(change, 2, { sign: true })} ({formatPercent(changePct, 2)})
           </span>
-          <span className="font-normal text-fg-2">{caption}</span>
+          <span className="inline-flex items-center gap-1.5 font-normal text-fg-2">
+            {!scrub && range === "1D" && isOpen && live.live && <span aria-hidden="true" className="live-dot text-up" />}
+            {caption}
+          </span>
           {scrub?.mentions != null && showMentions && (
             <span className="font-normal text-accent">· {formatInteger(scrub.mentions)} Erwähnungen</span>
           )}
@@ -168,7 +177,13 @@ export function PricePanel({
       </div>
 
       <div className="relative mt-4">
-        <ChartCanvas data={data} showMentions={showMentions} baseline={base} onScrub={setScrub} />
+        <ChartCanvas
+          data={data}
+          showMentions={showMentions}
+          baseline={base}
+          onScrub={setScrub}
+          live={live.live && isOpen && live.time ? { t: live.time, v: live.price, seq: live.seq } : null}
+        />
         {loading && (
           <div className="absolute inset-0 grid place-items-center" aria-hidden="true">
             <div className="skeleton h-full w-full rounded-none opacity-60" />
@@ -222,22 +237,29 @@ export function PricePanel({
   );
 }
 
+/** Zeitraster der Intraday-Kerzen (Sekunden) – Live-Ticks werden eingeordnet. */
+const BUCKET: Partial<Record<ChartRange, number>> = { "1D": 300, "1W": 1800 };
+
 function ChartCanvas({
   data,
   showMentions,
   baseline,
   onScrub,
+  live,
 }: {
   data: ChartData;
   showMentions: boolean;
   baseline: number;
   onScrub: (s: Scrub | null) => void;
+  /** Live-Kurs: aktualisiert die letzte Kerze bzw. hängt eine neue an. */
+  live: { t: number; v: number; seq: number } | null;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const areaRef = useRef<ISeriesApi<"Area"> | null>(null);
   const barsRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const lineRef = useRef<IPriceLine | null>(null);
+  const lastTimeRef = useRef(0);
   const [ready, setReady] = useState(false);
   const [theme, setTheme] = useState(0);
   const dataRef = useRef(data);
@@ -416,7 +438,33 @@ function ChartCanvas({
       title: "",
     });
     chart.timeScale().fitContent();
+    lastTimeRef.current = data.points[data.points.length - 1]?.t ?? 0;
   }, [data, showMentions, baseline, ready, theme]);
+
+  // Live-Ticks einspielen, ohne den Chart neu aufzubauen
+  const liveSeq = live?.seq ?? 0;
+  useEffect(() => {
+    const area = areaRef.current;
+    const chart = chartRef.current;
+    if (!ready || !area || !chart || !live) return;
+    const lastT = lastTimeRef.current;
+    if (!lastT) return;
+    const tickSec = Math.floor(live.t / 1000);
+    const bucket = BUCKET[data.range];
+    // Tages-/Wochenkerzen: nur die letzte Kerze aktualisieren
+    const time = bucket ? Math.max(lastT, Math.floor(tickSec / bucket) * bucket) : lastT;
+    if (bucket && tickSec < lastT) return;
+    try {
+      area.update({ time: time as UTCTimestamp, value: live.v });
+    } catch {
+      return;
+    }
+    if (time > lastT) {
+      lastTimeRef.current = time;
+      chart.timeScale().fitContent();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nur bei neuem Tick
+  }, [liveSeq, ready]);
 
   return (
     <>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ViewTransition } from "react";
 import { sectorLabel } from "@/config/sectors";
-import { getInstrument } from "@/config/universe";
+import { getInstrument, sizeLabel } from "@/config/universe";
 import { DataStatusLine, StaleBanner } from "@/components/data-status";
 import { Discussions } from "@/components/detail/discussions";
 import { KeyStats } from "@/components/detail/key-stats";
@@ -76,8 +76,20 @@ export default async function InstrumentPage(props: PageProps<"/aktie/[symbol]">
             <ViewTransition name={sharedName("title", row.symbol)} share="morph" default="none">
               <h1 className="truncate text-[1.5rem] font-bold leading-tight tracking-tight lg:text-[2rem]">{row.name}</h1>
             </ViewTransition>
-            <p className="text-[0.875rem] text-fg-2">
-              {row.ticker} · {row.exchange} · {sectorLabel(row.sector)}
+            <p className="flex flex-wrap items-center gap-x-1.5 text-[0.875rem] text-fg-2">
+              <span className="tnum font-medium text-accent">{row.ticker}</span>
+              <span aria-hidden="true">·</span>
+              <span>{row.exchange}</span>
+              <span aria-hidden="true">·</span>
+              <span>{sizeLabel(row.size).replace(/s$/, "")}</span>
+              {row.index && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>{row.index}</span>
+                </>
+              )}
+              <span aria-hidden="true">·</span>
+              <span>{sectorLabel(row.sector)}</span>
             </p>
           </div>
         </header>

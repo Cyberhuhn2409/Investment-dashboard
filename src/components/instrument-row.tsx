@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { ViewTransition } from "react";
-import { formatPrice } from "@/lib/format";
 import type { InstrumentRow as Row } from "@/lib/types";
 import { instrumentHref, sharedName } from "@/lib/view-transition";
-import { ChangePill } from "./ui/change";
+import { LiveChange, LivePrice } from "./live/live-values";
 import { Monogram } from "./ui/monogram";
 import { Sparkline } from "./ui/sparkline";
 import { LinkPending } from "./ui/link-pending";
@@ -42,7 +41,13 @@ export function InstrumentRowItem({
       )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-[0.9375rem] font-semibold leading-snug">{row.name}</p>
-        <p className="truncate text-[0.8125rem] text-fg-2">{meta ?? `${row.ticker} · ${row.exchange}`}</p>
+        <p className="truncate text-[0.8125rem] text-fg-2">
+          {meta ?? (
+            <>
+              <span className="tnum text-accent">{row.ticker}</span> · {row.exchange}
+            </>
+          )}
+        </p>
       </div>
       {spark && (
         <Sparkline values={row.spark} width={64} height={28} className="hidden shrink-0 sm:block" baseline={row.spark[0]} />
@@ -50,8 +55,8 @@ export function InstrumentRowItem({
       <LinkPending />
       {trailing ?? (
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <span className="tnum text-[0.9375rem] font-medium">{formatPrice(row.price, row.currency)}</span>
-          <ChangePill value={row.changePct1D} />
+          <LivePrice symbol={row.symbol} price={row.price} currency={row.currency} className="text-[0.9375rem] font-medium" />
+          <LiveChange symbol={row.symbol} price={row.price} changePct={row.changePct1D} pill />
         </div>
       )}
     </Link>

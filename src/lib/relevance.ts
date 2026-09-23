@@ -27,3 +27,10 @@ export interface RelevanceInput {
 export function isRelevant(r: RelevanceInput): boolean {
   return r.score >= SIGNAL_CONFIG.thresholds.flagged || Math.abs(r.moveZ) >= RELEVANCE.moveZ;
 }
+
+/** Kurzbegründung für Werte, die nur wegen ihrer Tagesbewegung relevant sind. */
+export function moveHighlight(changePct: number, moveZ: number): string {
+  const pct = `${changePct >= 0 ? "+" : "−"}${Math.abs(changePct).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`;
+  const z = Math.abs(moveZ).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return `Tagesbewegung ${pct} – ${z}× die übliche Schwankung`;
+}

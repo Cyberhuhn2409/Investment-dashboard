@@ -9,7 +9,8 @@ export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Heatmap",
-  description: "Sektor-Heatmap nach Marktkapitalisierung – eingefärbt nach Kursveränderung, Buzz oder Stimmung.",
+  description:
+    "Sektor-Heatmap nach Marktkapitalisierung je Größenklasse – eingefärbt nach Kursveränderung (live), Buzz oder Stimmung.",
 };
 
 export default async function HeatmapPage() {
@@ -21,13 +22,15 @@ export default async function HeatmapPage() {
     n: r.name,
     sec: r.sector,
     reg: r.region,
-    cap: Math.round(r.capUsdBn),
+    cap: Math.max(0.1, Math.round(r.capUsdBn * 10) / 10),
     d1: r2(r.changePct1D),
     w1: r2(r.changePct1W),
     m1: r2(r.changePct1M),
     buzz: Math.round(r.buzzChangePct),
     sent: r.sentiment === null ? null : r2(r.sentiment),
     score: r.signal.score,
+    sz: r.size,
+    rel: r.relevant ? 1 : 0,
   }));
 
   return (

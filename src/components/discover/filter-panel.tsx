@@ -1,24 +1,34 @@
 "use client";
 
 import { SIGNAL_TYPES } from "@/config/signals";
-import { SECTOR_OPTIONS, type DirectionFilter, type Filters, type RegionFilter, type SortKey } from "@/lib/discover";
+import { INDEX_IDS, SIZE_CLASSES } from "@/config/universe";
+import {
+  SECTOR_OPTIONS,
+  type DirectionFilter,
+  type Filters,
+  type RegionFilter,
+  type SortKey,
+} from "@/lib/discover";
 import { SegmentedControl } from "../ui/segmented";
 
-function Chip({
+export function Chip({
   active,
   onClick,
   children,
+  title,
 }: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`press shrink-0 rounded-full border px-3 py-1.5 text-[0.8125rem] font-medium transition-colors ${
+      title={title}
+      className={`press shrink-0 rounded-lg border px-2.5 py-1.5 text-[0.8125rem] font-medium transition-colors ${
         active ? "border-accent bg-accent-soft text-accent" : "border-line-strong text-fg-2 hover:text-fg"
       }`}
     >
@@ -27,26 +37,42 @@ function Chip({
   );
 }
 
+function toggle<T>(list: readonly T[], value: T): T[] {
+  return list.includes(value) ? list.filter((x) => x !== value) : [...list, value];
+}
+
 export function TypeChips({ filters, onChange }: { filters: Filters; onChange: (f: Filters) => void }) {
   return (
     <>
-      {SIGNAL_TYPES.map((t) => {
-        const active = filters.types.includes(t.id);
-        return (
-          <Chip
-            key={t.id}
-            active={active}
-            onClick={() =>
-              onChange({
-                ...filters,
-                types: active ? filters.types.filter((x) => x !== t.id) : [...filters.types, t.id],
-              })
-            }
-          >
-            {t.label}
-          </Chip>
-        );
-      })}
+      {SIGNAL_TYPES.map((t) => (
+        <Chip key={t.id} active={filters.types.includes(t.id)} onClick={() => onChange({ ...filters, types: toggle(filters.types, t.id) })}>
+          {t.label}
+        </Chip>
+      ))}
+    </>
+  );
+}
+
+/** Größenklassen + deutsche Indizes als Schnellfilter. */
+export function SegmentChips({ filters, onChange }: { filters: Filters; onChange: (f: Filters) => void }) {
+  return (
+    <>
+      {SIZE_CLASSES.map((c) => (
+        <Chip
+          key={c.id}
+          active={filters.sizes.includes(c.id)}
+          onClick={() => onChange({ ...filters, sizes: toggle(filters.sizes, c.id) })}
+          title={`${c.label} (${c.range})`}
+        >
+          {c.label}
+        </Chip>
+      ))}
+      <span aria-hidden="true" className="mx-0.5 h-5 w-px shrink-0 bg-line-strong" />
+      {INDEX_IDS.map((id) => (
+        <Chip key={id} active={filters.indices.includes(id)} onClick={() => onChange({ ...filters, indices: toggle(filters.indices, id) })}>
+          {id}
+        </Chip>
+      ))}
     </>
   );
 }
@@ -54,12 +80,13 @@ export function TypeChips({ filters, onChange }: { filters: Filters; onChange: (
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <fieldset className="mt-5 first:mt-1">
-      <legend className="mb-2 text-[0.8125rem] font-semibold uppercase tracking-wide text-fg-2">{title}</legend>
+      <legend className="label-mono mb-2 text-fg-2">{title}</legend>
       {children}
     </fieldset>
   );
 }
 
+/** Weitere Filter (Ansicht, Größe und Index stehen direkt über der Liste). */
 export function FilterPanel({ filters, onChange }: { filters: Filters; onChange: (f: Filters) => void }) {
   return (
     <div>
@@ -71,7 +98,7 @@ export function FilterPanel({ filters, onChange }: { filters: Filters; onChange:
           options={[
             { value: "ALL", label: "Alle" },
             { value: "US", label: "USA" },
-            { value: "DE", label: "DAX" },
+            { value: "DE", label: "Deutschland" },
           ]}
           className="w-full"
         />
@@ -95,7 +122,7 @@ export function FilterPanel({ filters, onChange }: { filters: Filters; onChange:
           aria-valuetext={`Score mindestens ${filters.minScore}`}
           className="w-full accent-[var(--accent)]"
         />
-        <div className="mt-1 flex justify-between text-[0.75rem] text-fg-2" aria-hidden="true">
+        <div className="tnum mt-1 flex justify-between text-[0.75rem] text-fg-2" aria-hidden="true">
           <span>0</span>
           <span>60 = markiert</span>
           <span>90</span>
@@ -121,23 +148,15 @@ export function FilterPanel({ filters, onChange }: { filters: Filters; onChange:
 
       <Group title="Sektoren">
         <div className="flex flex-wrap gap-2">
-          {SECTOR_OPTIONS.map((s) => {
-            const active = filters.sectors.includes(s.id);
-            return (
-              <Chip
-                key={s.id}
-                active={active}
-                onClick={() =>
-                  onChange({
-                    ...filters,
-                    sectors: active ? filters.sectors.filter((x) => x !== s.id) : [...filters.sectors, s.id],
-                  })
-                }
-              >
-                {s.label}
-              </Chip>
-            );
-          })}
+          {SECTOR_OPTIONS.map((s) => (
+            <Chip
+              key={s.id}
+              active={filters.sectors.includes(s.id)}
+              onClick={() => onChange({ ...filters, sectors: toggle(filters.sectors, s.id) })}
+            >
+              {s.label}
+            </Chip>
+          ))}
         </div>
       </Group>
 

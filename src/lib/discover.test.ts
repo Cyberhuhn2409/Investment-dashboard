@@ -5,6 +5,7 @@ import {
   applyFilters,
   filtersFromParams,
   filtersToParams,
+  scopeCounts,
   type DiscoverRow,
 } from "./discover";
 
@@ -16,6 +17,8 @@ const row = (over: Partial<DiscoverRow>): DiscoverRow => ({
   region: "US",
   exchange: "NYSE",
   currency: "USD",
+  size: "large",
+  index: null,
   price: 1,
   d1: 0,
   spark: [],
@@ -26,6 +29,8 @@ const row = (over: Partial<DiscoverRow>): DiscoverRow => ({
   type: "buzz",
   direction: "neutral",
   highlight: "",
+  relevant: true,
+  moveZ: 0,
   ...over,
 });
 
@@ -36,6 +41,27 @@ const rows = [
 ];
 
 describe("Entdecken-Filter", () => {
+  const universe = [
+    ...rows,
+    row({ symbol: "S", name: "Small", size: "small", score: 20, relevant: false }),
+    row({ symbol: "M.DE", name: "Mdax", size: "mid", region: "DE", index: "MDAX", score: 30, relevant: true, moveZ: 3 }),
+  ];
+
+  it("zeigt standardmäßig nur relevante Werte, auf Wunsch alle", () => {
+    expect(applyFilters(universe, DEFAULT_FILTERS).map((r) => r.symbol)).not.toContain("S");
+    expect(applyFilters(universe, { ...DEFAULT_FILTERS, scope: "all" }).map((r) => r.symbol)).toContain("S");
+    expect(scopeCounts(universe, DEFAULT_FILTERS)).toEqual({ all: 5, relevant: 4 });
+    expect(scopeCounts(universe, { ...DEFAULT_FILTERS, sizes: ["small"] })).toEqual({ all: 1, relevant: 0 });
+  });
+
+  it("filtert nach Größenklasse und Index", () => {
+    expect(applyFilters(universe, { ...DEFAULT_FILTERS, scope: "all", sizes: ["small", "mid"] }).map((r) => r.symbol)).toEqual([
+      "M.DE",
+      "S",
+    ]);
+    expect(applyFilters(universe, { ...DEFAULT_FILTERS, indices: ["MDAX"] }).map((r) => r.symbol)).toEqual(["M.DE"]);
+  });
+
   it("sortiert standardmäßig nach Score", () => {
     expect(applyFilters(rows, DEFAULT_FILTERS).map((r) => r.symbol)).toEqual(["A", "C.DE", "B"]);
   });
@@ -60,8 +86,19 @@ describe("Entdecken-Filter", () => {
   });
 
   it("URL-Parameter sind verlustfrei und robust", () => {
-    const f = { ...DEFAULT_FILTERS, sectors: ["tech" as const], types: ["news" as const], region: "DE" as const, minScore: 40, sort: "buzz" as const };
+    const f = {
+      ...DEFAULT_FILTERS,
+      scope: "all" as const,
+      sizes: ["mid" as const, "small" as const],
+      indices: ["SDAX" as const],
+      sectors: ["tech" as const],
+      types: ["news" as const],
+      region: "DE" as const,
+      minScore: 40,
+      sort: "buzz" as const,
+    };
     expect(filtersFromParams(filtersToParams(f))).toEqual(f);
+    expect(filtersFromParams(new URLSearchParams("groesse=mid,huge&index=mdax,FOO"))).toMatchObject({ sizes: ["mid"], indices: ["MDAX"] });
     const junk = filtersFromParams(new URLSearchParams("sektor=foo,tech&typ=bar&min=999&sort=evil&region=XX"));
     expect(junk).toEqual({ ...DEFAULT_FILTERS, sectors: ["tech"], minScore: 100 });
     expect(filtersToParams(DEFAULT_FILTERS).toString()).toBe("");
