@@ -14,6 +14,7 @@ import { tradingDays, type Session } from "@/lib/market-time";
 import { createRng, type Rng } from "@/lib/random";
 import type { Candle, Discussion, Fundamentals, NewsItem, SocialData, SocialDay } from "../types";
 import { DISCUSSIONS_DE, DISCUSSIONS_EN, NEWS_HEADLINES, NEWS_SOURCES, fill, type Tone } from "./templates";
+import type { SimParams } from "./live-sim";
 
 export const HISTORY_DAYS = 5 * 252 + 10;
 const DAY_S = 86_400;
@@ -280,6 +281,23 @@ function targetPrice(instrument: Instrument): number {
 
 export function annualVolatility(instrument: Instrument): number {
   return SECTOR_VOL[instrument.sector] * SIZE_VOL[instrument.size] * (VOL_MULT[instrument.symbol] ?? 1);
+}
+
+/** Anteil der Sekunden mit Handel im Demo-Livebetrieb. */
+const LIQUIDITY: Record<SizeClass, number> = { mega: 0.85, large: 0.65, mid: 0.4, small: 0.22 };
+
+/** Parameter der Live-Simulation: Referenz ist der Schlusskurs der Mock-Serie. */
+export function simParams(instrument: Instrument, data: MockInstrumentData): SimParams {
+  return {
+    key: instrument.symbol,
+    base: data.daily[data.daily.length - 1]!.c,
+    dailyVol: annualVolatility(instrument) / Math.sqrt(252),
+    liquidity: LIQUIDITY[instrument.size] * (instrument.region === "DE" ? 0.8 : 1),
+  };
+}
+
+export function indexSimParams(index: IndexDef, data: { daily: Candle[] }): SimParams {
+  return { key: `index:${index.id}`, base: data.daily[data.daily.length - 1]!.c, dailyVol: 0.009, liquidity: 1 };
 }
 
 function baseVolume(instrument: Instrument): number {

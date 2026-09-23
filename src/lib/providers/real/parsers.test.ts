@@ -9,6 +9,7 @@ import {
   parseFinnhubMetrics,
   parseFinnhubNews,
   parseFinnhubQuote,
+  parseFinnhubTrades,
   parseRedditListing,
   parseTwelveQuote,
   parseTwelveSeries,
@@ -46,6 +47,29 @@ describe("Finnhub", () => {
     ]);
     expect(items.map((i) => i.headline)).toEqual(["Neuer", "Älter"]);
     expect(items[1]!.summary).toBeNull();
+  });
+});
+
+describe("Finnhub WebSocket", () => {
+  it("liefert je Symbol den jüngsten Trade", () => {
+    const msg = JSON.stringify({
+      type: "trade",
+      data: [
+        { s: "AAPL", p: 232.1, t: 1_758_650_000_000, v: 10 },
+        { s: "AAPL", p: 232.4, t: 1_758_650_000_900, v: 5 },
+        { s: "NVDA", p: 178.02, t: 1_758_650_000_100, v: 100 },
+        { s: "BAD", p: -1, t: 1 },
+      ],
+    });
+    const trades = parseFinnhubTrades(msg);
+    expect(trades).toHaveLength(2);
+    expect(trades.find((t) => t.symbol === "AAPL")).toMatchObject({ price: 232.4, time: 1_758_650_000_900 });
+  });
+
+  it("ignoriert Pings, Fehler und kaputtes JSON", () => {
+    expect(parseFinnhubTrades('{"type":"ping"}')).toEqual([]);
+    expect(parseFinnhubTrades('{"type":"error","msg":"Subscribing to too many symbols"}')).toEqual([]);
+    expect(parseFinnhubTrades("nicht json")).toEqual([]);
   });
 });
 

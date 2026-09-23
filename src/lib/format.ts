@@ -116,6 +116,11 @@ export function formatTime(date: Date | string | number): string {
   return df({ hour: "2-digit", minute: "2-digit" }).format(new Date(date));
 }
 
+/** „16:05:12“ */
+export function formatTimeSeconds(date: Date | string | number): string {
+  return df({ hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(date));
+}
+
 /** „Stand: 23.09., 16:05“ */
 export function formatStand(date: Date | string | number): string {
   return `Stand: ${formatShortDateTime(date)}`;

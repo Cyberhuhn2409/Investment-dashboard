@@ -12,7 +12,15 @@ import type {
   SocialProvider,
   Discussion,
 } from "../types";
-import { generateIndex, generateInstrument, weekCandles } from "./generator";
+import { generateIndex, generateInstrument, indexSimParams, simParams, weekCandles } from "./generator";
+import { simulatedTick } from "./live-sim";
+
+/** Letzte Kerze auf den simulierten Live-Kurs setzen (nur bei offener Börse). */
+function withLiveClose(candles: Candle[], price: number | null): Candle[] {
+  const last = candles[candles.length - 1];
+  if (!last || price === null) return candles;
+  return [...candles.slice(0, -1), { ...last, c: price, h: Math.max(last.h, price), l: Math.min(last.l, price) }];
+}
 
 /**
  * Deterministischer Mock-Provider: vollständig offline, ohne Schlüssel.
@@ -28,7 +36,10 @@ export function createMockProviders(clock: () => number) {
       return generateInstrument(instrument, clock()).daily.slice(-days);
     },
     async getIntradayCandles(instrument: Instrument): Promise<Candle[]> {
-      return generateInstrument(instrument, clock()).intraday;
+      const now = clock();
+      const data = generateInstrument(instrument, now);
+      const open = latestSession(instrument.region, now).isOpen;
+      return withLiveClose(data.intraday, open ? simulatedTick(simParams(instrument, data), now).price : null);
     },
     async getWeekCandles(instrument: Instrument): Promise<Candle[]> {
       return weekCandles(instrument, generateInstrument(instrument, clock()));
@@ -39,17 +50,19 @@ export function createMockProviders(clock: () => number) {
       const last = data.daily[data.daily.length - 1]!;
       const prev = data.daily[data.daily.length - 2]!;
       const session = latestSession(instrument.region, now);
-      const lastBar = data.intraday[data.intraday.length - 1];
+      // Offene Börse: simulierter Live-Kurs (derselbe wie im Live-Stream)
+      const tick = session.isOpen ? simulatedTick(simParams(instrument, data), now) : null;
+      const price = tick?.price ?? last.c;
       return {
-        price: last.c,
+        price,
         prevClose: prev.c,
-        change: last.c - prev.c,
-        changePct: (last.c / prev.c - 1) * 100,
+        change: price - prev.c,
+        changePct: (price / prev.c - 1) * 100,
         open: last.o,
-        high: last.h,
-        low: last.l,
+        high: Math.max(last.h, price),
+        low: Math.min(last.l, price),
         volume: last.v,
-        time: session.isOpen ? Math.min(now, (lastBar?.t ?? 0) * 1000 + 300_000) : session.close,
+        time: tick?.time ?? session.close,
         marketOpen: session.isOpen,
       };
     },
@@ -64,7 +77,10 @@ export function createMockProviders(clock: () => number) {
       return generateIndex(def, clock()).daily.slice(-days);
     },
     async getIndexIntraday(def: IndexDef): Promise<Candle[]> {
-      return generateIndex(def, clock()).intraday;
+      const now = clock();
+      const data = generateIndex(def, now);
+      const open = latestSession(def.region, now).isOpen;
+      return withLiveClose(data.intraday, open ? simulatedTick(indexSimParams(def, data), now).price : null);
     },
   };
 

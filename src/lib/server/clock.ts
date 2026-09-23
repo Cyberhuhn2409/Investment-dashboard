@@ -20,3 +20,8 @@ export function mockScenario(): MockScenario {
   const s = process.env.MOCK_SCENARIO;
   return s === "stale" || s === "error" ? s : "normal";
 }
+
+/** Versatz der Referenzzeit zur echten Zeit (nur bei MOCK_NOW ≠ 0) – für Uhren im Client. */
+export function clockOffsetMs(): number {
+  return process.env.MOCK_NOW ? nowMs() - Date.now() : 0;
+}

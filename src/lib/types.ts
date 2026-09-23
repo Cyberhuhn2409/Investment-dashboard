@@ -144,3 +144,21 @@ export interface InstrumentDetail {
   summary: DiscussionSummary | null;
   status: DataStatus;
 }
+
+/** Live-Kurs (Server-Sent Events `/api/live`). Kurze Feldnamen halten die Nachrichten klein. */
+export interface LiveTick {
+  /** Symbol oder Index-ID (SPX, NDX, DAX) */
+  s: string;
+  /** Kurs bzw. Indexstand */
+  p: number;
+  /** Veränderung ggü. Vortagesschluss (absolut) */
+  c: number;
+  /** Veränderung ggü. Vortagesschluss (%) */
+  cp: number;
+  /** Zeitpunkt des Kurses (ms) */
+  t: number;
+  /** Quelle: simuliert (Demo), Echtzeit-Trade, verzögerter Kurs */
+  q: "sim" | "rt" | "delayed";
+  /** Heimatbörse geöffnet (1) oder geschlossen (0) */
+  m: 0 | 1;
+}

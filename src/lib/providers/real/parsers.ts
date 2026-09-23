@@ -303,3 +303,38 @@ export function dailyCounts(timestampsMs: readonly number[], days: number, nowMs
 export function isoDate(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
+
+/* ============================ Finnhub WebSocket ============================ */
+
+export interface StreamTrade {
+  symbol: string;
+  price: number;
+  /** ms */
+  time: number;
+  volume: number;
+}
+
+/**
+ * Nachricht des Finnhub-Trade-Streams (`{"type":"trade","data":[{s,p,t,v}]}`).
+ * Liefert je Symbol nur den jüngsten Trade; Pings und Fehler ergeben [].
+ */
+export function parseFinnhubTrades(raw: string): StreamTrade[] {
+  let msg: unknown;
+  try {
+    msg = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!msg || typeof msg !== "object" || (msg as { type?: unknown }).type !== "trade") return [];
+  const data = (msg as { data?: unknown }).data;
+  if (!Array.isArray(data)) return [];
+  const latest = new Map<string, StreamTrade>();
+  for (const d of data) {
+    if (!d || typeof d !== "object") continue;
+    const { s, p, t, v } = d as Record<string, unknown>;
+    if (typeof s !== "string" || typeof p !== "number" || typeof t !== "number" || !(p > 0)) continue;
+    const prev = latest.get(s);
+    if (!prev || t >= prev.time) latest.set(s, { symbol: s, price: p, time: t, volume: typeof v === "number" ? v : 0 });
+  }
+  return [...latest.values()];
+}

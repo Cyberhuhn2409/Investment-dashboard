@@ -11,7 +11,7 @@ import {
 } from "@/config/universe";
 import { latestSession, utcDayStart } from "@/lib/market-time";
 import { lexiconAnalyzer } from "@/lib/providers/lexicon-analyzer";
-import type { Candle, Discussion, NewsResult, SocialData } from "@/lib/providers/types";
+import type { Candle, Discussion, NewsResult, Quote, SocialData } from "@/lib/providers/types";
 import { computeSignal } from "@/lib/scoring/score";
 import type { Signal, SignalInputs } from "@/lib/scoring/types";
 import { sentimentLabel } from "@/lib/sentiment/lexicon";
@@ -28,7 +28,7 @@ import type {
   InstrumentRow,
   Snapshot,
 } from "@/lib/types";
-import { cached } from "./cache";
+import { cached, peek } from "./cache";
 import { mockScenario, nowMs } from "./clock";
 import { getProviders } from "./registry";
 
@@ -114,6 +114,20 @@ function loadDaily(instrument: Instrument, days: number) {
 function loadQuote(instrument: Instrument) {
   const p = getProviders().price(instrument);
   return cached(`quote:${p.id}:${instrument.symbol}`, () => p.getQuote(instrument), ttl("quote"));
+}
+
+/**
+ * Kurs für den Live-Stream. Bei wenigen Symbolen (Detailseite) wird mit 30 s
+ * Cache aktiv nachgeladen; sonst nur gelesen, was der Snapshot bereits geholt
+ * hat – so kann der Stream nie das Rate-Limit ausschöpfen.
+ */
+export async function liveQuote(instrument: Instrument, fresh: boolean): Promise<Quote | null> {
+  const p = getProviders().price(instrument);
+  if (fresh) {
+    return (await cached(`quote-live:${p.id}:${instrument.symbol}`, () => p.getQuote(instrument), { ttl: 30_000, staleTtl: HOUR }))
+      .value;
+  }
+  return peek<Quote>(`quote-live:${p.id}:${instrument.symbol}`) ?? peek<Quote>(`quote:${p.id}:${instrument.symbol}`) ?? null;
 }
 
 function loadSocial(instrument: Instrument) {
@@ -278,6 +292,11 @@ function marketOpenMap(now: number): Record<Region, boolean> {
   return { US: latestSession("US", now).isOpen, DE: latestSession("DE", now).isOpen };
 }
 
+/** Indexzeilen (eigener Cache, auch für den Live-Stream). */
+export async function getIndexRows(): Promise<IndexRow[]> {
+  return (await cached("indices", buildIndices, ttl("intraday"))).value;
+}
+
 async function buildIndices(): Promise<IndexRow[]> {
   const ps = getProviders();
   const now = nowMs();
@@ -318,7 +337,7 @@ async function buildSnapshot(): Promise<Snapshot> {
     const first = results.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
     throw first?.reason instanceof Error ? first.reason : new Error("Keine Daten verfügbar");
   }
-  const indices = await buildIndices().catch(() => [] as IndexRow[]);
+  const indices = await getIndexRows().catch(() => [] as IndexRow[]);
   const now = nowMs();
   const notes: string[] = [];
   if (failed > 0) notes.push(`${failed} von ${scan.length} Werten konnten nicht geladen werden (Rate-Limit oder Anbieterlücke).`);
@@ -414,9 +433,13 @@ async function buildChart(instrument: Instrument, range: ChartRange): Promise<Ch
       const m = hourly.get(hour);
       if (m !== undefined) mentions.push({ t: c.t, v: m });
     }
+    const points = candles.map((c) => ({ t: c.t, v: round(c.c) }));
+    // Letzter Punkt = aktueller Kurs (Kerzen können dem Kurs hinterherhinken)
+    const lastPoint = points[points.length - 1];
+    if (lastPoint && quote.marketOpen && Number.isFinite(quote.price)) lastPoint.v = round(quote.price);
     return {
       range,
-      points: candles.map((c) => ({ t: c.t, v: round(c.c) })),
+      points,
       mentions,
       baseline: quote.prevClose,
       intraday: true,
@@ -507,12 +530,16 @@ export async function getInstrumentDetail(symbol: string): Promise<InstrumentDet
   const ps = getProviders();
   const now = nowMs();
 
+  // Bei offener Börse startet der Chart mit „Heute“ (Live-Ticks sichtbar), sonst mit 1 Monat.
+  const open = latestSession(instrument.region, now).isOpen;
   const [bundle, fundamentals, social, news, chart] = await Promise.all([
     buildRow(instrument),
     loadFundamentals(instrument),
     loadSocial(instrument).catch(() => ({ value: EMPTY_SOCIAL, fetchedAt: 0, stale: true })),
     loadNews(instrument).catch(() => ({ value: EMPTY_NEWS, fetchedAt: 0, stale: true })),
-    buildChart(instrument, "1M"),
+    buildChart(instrument, open ? "1D" : "1M")
+      .then((c) => (c.points.length > 1 ? c : buildChart(instrument, "1M")))
+      .catch(() => buildChart(instrument, "1M")),
   ]);
   const quote = (await loadQuote(instrument)).value;
 

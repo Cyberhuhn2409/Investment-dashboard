@@ -92,6 +92,12 @@ export async function cached<T>(key: string, loader: () => Promise<T>, opts: Cac
   }
 }
 
+/** Vorhandenen Wert lesen, ohne zu laden (auch veraltet, solange nicht verworfen). */
+export function peek<T>(key: string): T | undefined {
+  const hit = store.get(key) as Entry<T> | undefined;
+  return hit && Date.now() < hit.discardAt ? hit.value : undefined;
+}
+
 /** Nur für Tests. */
 export function clearCache(): void {
   store.clear();
