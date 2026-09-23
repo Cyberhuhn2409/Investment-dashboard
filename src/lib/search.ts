@@ -5,6 +5,8 @@ export interface SearchEntry {
   ticker: string;
   name: string;
   exchange: Instrument["exchange"];
+  size: Instrument["size"];
+  index: Instrument["index"];
   sector: Instrument["sector"];
   aliases: string[];
 }
@@ -51,11 +53,13 @@ export function searchInstruments(entries: readonly SearchEntry[], query: string
 }
 
 export function toSearchEntries(instruments: readonly Instrument[]): SearchEntry[] {
-  return instruments.map(({ symbol, ticker, name, exchange, sector, aliases }) => ({
+  return instruments.map(({ symbol, ticker, name, exchange, size, index, sector, aliases }) => ({
     symbol,
     ticker,
     name,
     exchange,
+    size,
+    index,
     sector,
     aliases,
   }));

@@ -255,6 +255,15 @@ export function Heatmap({ tiles }: { tiles: HeatTile[] }) {
         onPointerLeave={() => setHover(null)}
       >
         {!layout && <div className="skeleton absolute inset-0" aria-hidden="true" />}
+        {layout && filtered.length === 0 && (
+          <div className="panel absolute inset-x-4 top-1/2 -translate-y-1/2 px-6 py-8 text-center" role="status">
+            <p className="font-semibold">Keine Werte in dieser Auswahl</p>
+            <p className="mt-1 text-[0.875rem] text-fg-2">
+              Mit echten Datenquellen werden nicht alle Segmente laufend ausgewertet (siehe <code className="font-mono">SCAN_UNIVERSE</code>).
+              Einzelne Werte findest du über die Suche.
+            </p>
+          </div>
+        )}
         {layout && (
           <>
             {layout.sectors.map((sec) => {

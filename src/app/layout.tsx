@@ -6,6 +6,7 @@ import { TabBar } from "@/components/shell/tab-bar";
 import { ServiceWorker } from "@/components/service-worker";
 import { NavTracker } from "@/components/shell/back-link";
 import { MarketBar } from "@/components/live/market-bar";
+import { ThemeSync } from "@/components/shell/theme-sync";
 import { clockOffsetMs } from "@/lib/server/clock";
 import { THEME_COLORS, THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Zum Inhalt springen
         </a>
+        <ThemeSync />
         <MotionProvider>
           <div className="mx-auto flex min-h-dvh max-w-[90rem]">
             <Sidebar />

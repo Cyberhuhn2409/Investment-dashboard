@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, m } from "motion/react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { sectorLabel } from "@/config/sectors";
-import { UNIVERSE } from "@/config/universe";
+import { SIZE_CLASSES, UNIVERSE } from "@/config/universe";
 import { searchInstruments, toSearchEntries, type SearchEntry } from "@/lib/search";
 import { CloseIcon, SearchIcon } from "../icons";
 import { Monogram } from "../ui/monogram";
@@ -12,6 +12,7 @@ import { Monogram } from "../ui/monogram";
 const ENTRIES = toSearchEntries(UNIVERSE);
 const BY_SYMBOL = new Map(ENTRIES.map((e) => [e.symbol, e]));
 const POPULAR = ["NVDA", "TSLA", "AAPL", "SAP.DE", "RHM.DE", "MSFT"];
+const SIZE_SHORT = new Map(SIZE_CLASSES.map((c) => [c.id, `${c.short} Cap`]));
 const RECENT_KEY = "signal:recent-search";
 
 function readRecent(): string[] {
@@ -120,7 +121,8 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
       <div className="min-w-0 flex-1">
         <p className="truncate text-[0.9375rem] font-medium">{entry.name}</p>
         <p className="truncate text-[0.8125rem] text-fg-2">
-          {entry.ticker} · {entry.exchange} · {sectorLabel(entry.sector)}
+          <span className="tnum text-accent">{entry.ticker}</span> · {entry.exchange} · {SIZE_SHORT.get(entry.size)}
+          {entry.index ? ` · ${entry.index}` : ""} · {sectorLabel(entry.sector)}
         </p>
       </div>
     </li>
@@ -196,7 +198,7 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
                 <div className="px-4 py-12 text-center" role="status">
                   <p className="font-medium">Keine Treffer für „{query.trim()}“</p>
                   <p className="mt-1 text-sm text-fg-2">
-                    Signal deckt ~150 US-Large-Caps und den DAX 40 ab. Versuche den Ticker oder einen anderen Namen.
+                    Signal deckt über 500 US-Werte sowie DAX, MDAX und SDAX ab. Versuche den Ticker oder einen anderen Namen.
                   </p>
                 </div>
               ) : (
