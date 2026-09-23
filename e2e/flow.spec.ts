@@ -12,6 +12,14 @@ test.describe("Hauptablauf", () => {
     await expect(page.getByRole("list", { name: "Indizes" }).getByText("S&P 500")).toBeVisible();
     await expect(page.getByRole("list", { name: "Top-Signale" }).getByRole("link").first()).toBeVisible();
     await expect(page.getByText("DEMO").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Segment-Radar" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Small Caps: \d+ von \d+ Werten relevant/ })).toBeVisible();
+
+    // Live-Kurse: Stream startet nach dem ersten Rendern, Kurse ticken
+    await expect(page.getByRole("status").filter({ hasText: "Live · simuliert" }).filter({ visible: true })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.locator(".tick-up, .tick-down").first()).toBeAttached({ timeout: 15_000 });
 
     // Heatmap
     await navigate(page, "Heatmap");
@@ -73,29 +81,42 @@ test.describe("Hauptablauf", () => {
 });
 
 test.describe("Entdecken", () => {
-  test("filtert nach Typ und Mindest-Score, zeigt leeren Zustand", async ({ page }) => {
+  test("zeigt zuerst relevante Werte, filtert nach Größe, Typ und Score", async ({ page }) => {
     await page.goto("/entdecken");
     await expect(page.getByRole("heading", { level: 1, name: "Entdecken" })).toBeVisible();
-    const status = page.getByRole("status").filter({ hasText: "Werte" }).first();
-    await expect(status).toContainText("188");
+    const status = page.getByRole("status").filter({ hasText: /\d+\s+(relevanter?\s+)?Wert/ }).first();
+    await expect(status).toContainText("relevante Werte");
+    const relevant = Number((await status.locator(".tnum").first().textContent()) ?? "0");
+    expect(relevant).toBeGreaterThan(20);
+    expect(relevant).toBeLessThan(300);
 
-    await page.getByRole("button", { name: "Nachrichtenwelle" }).first().click();
-    await expect(status).not.toContainText("188");
-    await expect(page).toHaveURL(/typ=news/);
+    // Alle Werte
+    await page.getByRole("radio", { name: /^Alle Werte/ }).click();
+    await expect(status).toContainText("531");
+    await expect(page).toHaveURL(/ansicht=alle/);
 
-    // Mindest-Score über Filterpanel/Sheet auf Maximum
+    // Größenklasse
+    await page.getByRole("button", { name: "Small Caps" }).first().click();
+    await expect(page).toHaveURL(/groesse=small/);
+    await expect(status).not.toContainText("531");
+
+    // Signaltyp + Mindest-Score über Filterpanel/Sheet
     if (isMobile(page)) await page.getByRole("button", { name: /Filter öffnen/ }).click();
+    await page.getByRole("button", { name: "Nachrichtenwelle" }).filter({ visible: true }).first().click();
+    await expect(page).toHaveURL(/typ=news/);
     const slider = page.getByRole("slider", { name: "Mindest-Score" }).filter({ visible: true });
     await slider.fill("90");
     if (isMobile(page)) await page.getByRole("button", { name: /Ergebnis/ }).click();
-    await expect(page.getByText("Keine Signale für diese Filter")).toBeVisible();
+    await expect(page.getByText("Keine Werte für diese Filter")).toBeVisible();
     await page.getByRole("button", { name: "Filter zurücksetzen" }).click();
-    await expect(status).toContainText("188");
+    await expect(status).toContainText(String(relevant));
   });
 
   test("übernimmt Filter aus der URL", async ({ page }) => {
-    await page.goto("/entdecken?region=DE&sort=name");
-    await expect(page.getByRole("status").filter({ hasText: "Werte" }).first()).toContainText("40");
+    await page.goto("/entdecken?region=DE&sort=name&ansicht=alle");
+    await expect(page.getByRole("status").filter({ hasText: "Werte" }).first()).toContainText("126");
+    await page.goto("/entdecken?index=MDAX&ansicht=alle");
+    await expect(page.getByRole("status").filter({ hasText: "Werte" }).first()).toContainText("45");
   });
 });
 
@@ -129,5 +150,14 @@ test.describe("Zustände", () => {
     expect(json.points.length).toBeGreaterThan(10);
     expect((await request.get("/api/chart/AAPL?range=7X")).status()).toBe(400);
     expect((await request.get("/api/chart/NOPE?range=1M")).status()).toBe(404);
+  });
+
+  test("Live-API liefert Ticks und validiert Symbole", async ({ request }) => {
+    const ok = await request.get("/api/live?s=NVDA,SAP.DE,SPX&format=json");
+    expect(ok.status()).toBe(200);
+    const json = (await ok.json()) as { mode: string; ticks: { s: string; q: string; m: number }[] };
+    expect(json.mode).toBe("sim");
+    expect(json.ticks.map((t) => t.s).sort()).toEqual(["NVDA", "SAP.DE", "SPX"]);
+    expect((await request.get("/api/live?s=NOPE")).status()).toBe(400);
   });
 });

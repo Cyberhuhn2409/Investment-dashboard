@@ -32,9 +32,9 @@ const SHOTS: Shot[] = [
   { name: "04-entdecken", path: "/entdecken", full: true },
   {
     name: "05-entdecken-filter",
-    path: "/entdecken?typ=buzz,sentiment&min=50",
+    path: "/entdecken?ansicht=alle&groesse=mid,small&typ=buzz,momentum",
     prepare: async (page, width) => {
-      if (width < 1024) {
+      if (width < 1280) {
         await page.getByRole("button", { name: /Filter öffnen/ }).click();
         await page.waitForTimeout(700);
       }
@@ -93,7 +93,17 @@ const SHOTS: Shot[] = [
       }),
   },
   { name: "14-zustand-keine-treffer", path: "/entdecken?region=DE&min=90" },
-  { name: "15-zustand-nicht-gefunden", path: "/aktie/XYZ" },
+  { name: "15-zustand-nicht-gefunden", path: "/aktie/XYZ123" },
+  {
+    name: "16-heatmap-smallcaps-relevant",
+    path: "/heatmap",
+    prepare: async (page) => {
+      await page.getByRole("radio", { name: "Small Caps" }).click();
+      await page.getByRole("button", { name: "Relevante hervorheben" }).click();
+      await page.waitForTimeout(900);
+    },
+  },
+  { name: "17-entdecken-alle-mdax", path: "/entdecken?ansicht=alle&index=MDAX&sort=change", full: true },
 ];
 
 async function capture(browser: Browser, shot: Shot, width: number, theme: string, baseURL: string) {
@@ -116,7 +126,8 @@ async function capture(browser: Browser, shot: Shot, width: number, theme: strin
   const page = await context.newPage();
   if (shot.route) await shot.route(page);
   await page.goto(shot.path, { waitUntil: "load" });
-  await page.waitForTimeout(1200);
+  // Live-Stream startet nach dem ersten Rendern → Status „Live“ abwarten
+  await page.waitForTimeout(2600);
   if (shot.prepare) await shot.prepare(page, width);
   if (shot.full) {
     const height = await page.evaluate(() => document.documentElement.scrollHeight);
@@ -129,7 +140,9 @@ async function capture(browser: Browser, shot: Shot, width: number, theme: strin
 
 test("Screenshots aller Screens", async ({ browser, baseURL }) => {
   mkdirSync(OUT, { recursive: true });
-  for (const shot of SHOTS) {
+  // Optional nur einzelne Motive: SHOTS=15,16 npm run screenshots
+  const only = process.env.SHOTS?.split(",").filter(Boolean);
+  for (const shot of SHOTS.filter((s) => !only || only.some((o) => s.name.startsWith(o)))) {
     for (const width of WIDTHS) {
       for (const theme of THEMES) {
         await capture(browser, shot, width, theme, baseURL!);

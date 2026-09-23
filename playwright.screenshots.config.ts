@@ -7,5 +7,5 @@ export default defineConfig({
   testIgnore: undefined,
   testMatch: /screenshots\.spec\.ts/,
   projects: [{ name: "screenshots", use: { browserName: "chromium" } }],
-  timeout: 180_000,
+  timeout: 900_000,
 });
