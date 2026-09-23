@@ -8,7 +8,7 @@ Signal ist eine mobile-first Web-App (PWA) im Stil eines modernen Markt-Terminal
 | --- | --- | --- | --- |
 | ![Start](screenshots/01-start-390-dark.png) | ![Heatmap](screenshots/02-heatmap-390-dark.png) | ![Detail](screenshots/06-detail-390-dark.png) | ![Entdecken](screenshots/04-entdecken-390-light.png) |
 
-Alle Screenshots (390 px und 1440 px, Dunkel und Hell, inkl. Lade-/Fehler-/Leer-/Veraltet-Zuständen) liegen in [`/screenshots`](screenshots).
+Alle Screenshots (390 px und 1440 px, Dunkel und Hell, inkl. Lade-/Fehler-/Leer-/Veraltet-Zuständen) liegen in [`/screenshots`](screenshots). Rundgang als Video (Demo-Modus mit Live-Kursen): [Desktop](screenshots/rundgang-desktop.mp4) · [Handy](screenshots/rundgang-handy.mp4).
 
 ## Funktionen
 
