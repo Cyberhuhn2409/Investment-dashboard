@@ -25,7 +25,7 @@ export function ThemeToggle({ withLabel = false, className = "" }: { withLabel?:
     <button
       type="button"
       onClick={() => applyTheme(next)}
-      aria-label={withLabel ? undefined : label}
+      aria-label={label}
       title={label}
       className={`press inline-flex items-center gap-2 rounded-full text-fg-2 hover:text-fg ${
         withLabel ? "px-3 py-2 text-sm" : "size-10 justify-center bg-surface-2"

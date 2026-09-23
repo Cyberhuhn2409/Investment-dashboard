@@ -1,6 +1,7 @@
-import { LoadingAnnouncement, Skeleton, SkeletonList } from "@/components/ui/skeleton";
+import { LoadingAnnouncement, Skeleton, SkeletonList } from "./ui/skeleton";
 
-export default function Loading() {
+/** Generisches Seiten-Skelett für loading.tsx-Dateien. */
+export function PageSkeleton() {
   return (
     <div className="px-4 pt-14 lg:px-0 lg:pt-10" aria-busy="true">
       <LoadingAnnouncement />
