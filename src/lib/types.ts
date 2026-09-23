@@ -1,7 +1,7 @@
 /** Vom Server an die UI gelieferte Datenstrukturen (keine Server-Abhängigkeiten). */
 import type { SectorId } from "@/config/sectors";
 import type { SignalType } from "@/config/signals";
-import type { Currency, Exchange, IndexDef, Region } from "@/config/universe";
+import type { Currency, Exchange, IndexDef, IndexId, Region, SizeClass } from "@/config/universe";
 import type { Discussion, Fundamentals, NewsItem, Quote } from "@/lib/providers/types";
 import type { Confidence, Signal, SignalDirection } from "@/lib/scoring/types";
 
@@ -27,6 +27,8 @@ export interface InstrumentRow {
   region: Region;
   exchange: Exchange;
   currency: Currency;
+  size: SizeClass;
+  index: IndexId | null;
   price: number;
   change1D: number;
   changePct1D: number;
@@ -42,6 +44,10 @@ export interface InstrumentRow {
   /** Stimmung heute −1…+1 */
   sentiment: number | null;
   signal: CompactSignal;
+  /** Tagesbewegung in Vielfachen der üblichen Tagesschwankung. */
+  moveZ: number;
+  /** Markiertes Signal oder ungewöhnliche Tagesbewegung. */
+  relevant: boolean;
   demo: boolean;
 }
 
@@ -73,7 +79,8 @@ export interface DataStatus {
   demo: boolean;
   marketOpen: Record<Region, boolean>;
   sources: SourceInfo[];
-  coverage: { loaded: number; total: number };
+  /** Geladene / gescannte Werte; `universe` = Größe des gesamten Universums. */
+  coverage: { loaded: number; total: number; universe: number };
   notes: string[];
 }
 

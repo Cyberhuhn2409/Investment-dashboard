@@ -170,3 +170,15 @@ export const COMPONENT_TO_TYPE: Record<ComponentKey, SignalType> = {
 export function signalTypeLabel(type: SignalType): string {
   return SIGNAL_TYPES.find((t) => t.id === type)?.label ?? type;
 }
+
+/**
+ * Relevanzfilter für das breite Universum: Standardansichten zeigen nur Werte,
+ * bei denen gerade etwas passiert – ein markiertes Signal (Score ≥ flagged) oder
+ * eine für den Wert ungewöhnlich große Tagesbewegung.
+ */
+export const RELEVANCE = {
+  /** Tagesbewegung ab diesem Vielfachen der üblichen Tagesschwankung (σ). */
+  moveZ: 2.5,
+  /** Zeitraum für die übliche Tagesschwankung (Handelstage). */
+  volatilityDays: 60,
+} as const;

@@ -1,11 +1,21 @@
 import "server-only";
-import { INDICES, UNIVERSE, getInstrument, marketCapUsdBn, type Instrument, type Region } from "@/config/universe";
+import {
+  INDICES,
+  UNIVERSE,
+  getInstrument,
+  isIndexId,
+  isSizeClass,
+  marketCapUsdBn,
+  type Instrument,
+  type Region,
+} from "@/config/universe";
 import { latestSession, utcDayStart } from "@/lib/market-time";
 import { lexiconAnalyzer } from "@/lib/providers/lexicon-analyzer";
 import type { Candle, Discussion, NewsResult, SocialData } from "@/lib/providers/types";
 import { computeSignal } from "@/lib/scoring/score";
 import type { Signal, SignalInputs } from "@/lib/scoring/types";
 import { sentimentLabel } from "@/lib/sentiment/lexicon";
+import { dailyMoveZ, isRelevant } from "@/lib/relevance";
 import type {
   ChartData,
   ChartPoint,
@@ -25,13 +35,52 @@ import { getProviders } from "./registry";
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 
+/* ------------------------------------------------------------------ */
+/* Scan-Umfang                                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Welche Werte der Snapshot (Start, Heatmap, Entdecken) laufend auswertet.
+ * `SCAN_UNIVERSE` = Liste aus Größenklassen (mega, large, mid, small), Indizes
+ * (DAX, MDAX, SDAX), Regionen (US, DE) oder `all`; ein Wert wird gescannt, wenn
+ * er auf einen Eintrag passt. Demo: alles. Echte Provider: Mega/Large Caps + DAX,
+ * weil Gratis-Kontingente (z. B. Twelve Data 800/Tag) nicht für >500 Werte reichen.
+ * Nicht gescannte Werte bleiben über Suche, Detailseite und Watchlist erreichbar.
+ */
+let scanMemo: { key: string; list: readonly Instrument[] } | null = null;
+
+export function scanUniverse(): readonly Instrument[] {
+  const demo = getProviders().demo;
+  const key = `${demo}:${process.env.SCAN_UNIVERSE ?? ""}`;
+  if (scanMemo?.key === key) return scanMemo.list;
+  const raw = (process.env.SCAN_UNIVERSE ?? (demo ? "all" : "mega,large,DAX")).split(",").map((t) => t.trim());
+  const tokens = raw.filter(Boolean);
+  const list =
+    tokens.length === 0 || tokens.some((t) => t.toLowerCase() === "all")
+      ? UNIVERSE
+      : UNIVERSE.filter((i) =>
+          tokens.some((t) => {
+            const lower = t.toLowerCase();
+            const upper = t.toUpperCase();
+            if (isSizeClass(lower)) return i.size === lower;
+            if (isIndexId(upper)) return i.index === upper;
+            return upper === i.region;
+          }),
+        );
+  scanMemo = { key, list: list.length > 0 ? list : UNIVERSE };
+  return scanMemo.list;
+}
+
 /** Cache-Laufzeiten je Datenart (ms). Echte Provider werden seltener gefragt. */
 function ttl(kind: "quote" | "daily" | "intraday" | "social" | "news" | "fundamentals" | "snapshot" | "summary") {
   const demo = getProviders().demo;
+  // Kurse im Snapshot: Rotation so langsam, dass das Minutenlimit (Finnhub 60/Min.)
+  // Luft für Detailseiten und Live-Abfragen lässt.
+  const realQuote = Math.max(2, Math.ceil(scanUniverse().length / 30)) * MIN;
   const table = {
-    quote: demo ? MIN : 2 * MIN,
+    quote: demo ? MIN : realQuote,
     intraday: demo ? MIN : 5 * MIN,
-    daily: demo ? 10 * MIN : 6 * HOUR,
+    daily: demo ? 10 * MIN : 12 * HOUR,
     social: demo ? 5 * MIN : 15 * MIN,
     news: demo ? 5 * MIN : 15 * MIN,
     fundamentals: 12 * HOUR,
@@ -167,6 +216,7 @@ async function buildRow(instrument: Instrument): Promise<RowBundle> {
   const baselineDays = days.slice(-31, -1);
   const baseline = baselineDays.reduce((a, d) => a + d.mentions, 0) / Math.max(1, baselineDays.length);
   const mentions24h = today?.mentions ?? 0;
+  const moveZ = dailyMoveZ(closes);
 
   const row: InstrumentRow = {
     symbol: instrument.symbol,
@@ -176,6 +226,8 @@ async function buildRow(instrument: Instrument): Promise<RowBundle> {
     region: instrument.region,
     exchange: instrument.exchange,
     currency: instrument.currency,
+    size: instrument.size,
+    index: instrument.index,
     price: round(quote.value.price),
     change1D: round(quote.value.change),
     changePct1D: round(quote.value.changePct),
@@ -188,6 +240,8 @@ async function buildRow(instrument: Instrument): Promise<RowBundle> {
     buzzChangePct: round(baseline > 0 ? (mentions24h / baseline - 1) * 100 : 0, 1),
     sentiment: today?.sentiment ?? null,
     signal: compact(signal),
+    moveZ: round(moveZ, 2),
+    relevant: isRelevant({ score: signal.score, moveZ }),
     demo: isDemo(instrument),
   };
   return {
@@ -256,7 +310,8 @@ async function buildIndices(): Promise<IndexRow[]> {
 async function buildSnapshot(): Promise<Snapshot> {
   assertScenario();
   const ps = getProviders();
-  const results = await mapLimit(UNIVERSE, 12, buildRow);
+  const scan = scanUniverse();
+  const results = await mapLimit(scan, 12, buildRow);
   const bundles = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
   const failed = results.length - bundles.length;
   if (bundles.length === 0) {
@@ -266,7 +321,7 @@ async function buildSnapshot(): Promise<Snapshot> {
   const indices = await buildIndices().catch(() => [] as IndexRow[]);
   const now = nowMs();
   const notes: string[] = [];
-  if (failed > 0) notes.push(`${failed} von ${UNIVERSE.length} Werten konnten nicht geladen werden (Rate-Limit oder Anbieterlücke).`);
+  if (failed > 0) notes.push(`${failed} von ${scan.length} Werten konnten nicht geladen werden (Rate-Limit oder Anbieterlücke).`);
   const scenarioStale = ps.demo && mockScenario() === "stale";
   const asOf = scenarioStale ? now - 3 * HOUR : Math.max(...bundles.map((b) => b.quoteTime));
 
@@ -277,7 +332,7 @@ async function buildSnapshot(): Promise<Snapshot> {
     demo: ps.demo,
     marketOpen: marketOpenMap(now),
     sources: ps.active.map(({ id, label, mock, attribution }) => ({ id, label, mock, attribution })),
-    coverage: { loaded: bundles.length, total: UNIVERSE.length },
+    coverage: { loaded: bundles.length, total: scan.length, universe: UNIVERSE.length },
     notes,
   };
   return { status, rows: bundles.map((b) => b.row), indices };
@@ -495,7 +550,7 @@ export async function getInstrumentDetail(symbol: string): Promise<InstrumentDet
       ps.news(instrument),
       ps.analyzer,
     ].map(({ id, label, mock, attribution }) => ({ id, label, mock, attribution })),
-    coverage: { loaded: 1, total: 1 },
+    coverage: { loaded: 1, total: 1, universe: UNIVERSE.length },
     notes: [],
   };
 
@@ -536,6 +591,21 @@ async function summarizeDiscussions(
   }
   const lex = await lexiconAnalyzer.summarize(instrument, discussions);
   return { summary: lex ? { text: lex.text, method: "lexicon" } : null };
+}
+
+/**
+ * Zeilen für eine Symbolliste (Watchlist): aus dem Snapshot, nicht gescannte
+ * Werte werden einzeln nachgeladen.
+ */
+export async function getRows(symbols: readonly string[]): Promise<{ rows: InstrumentRow[]; status: DataStatus }> {
+  const snapshot = await getSnapshot();
+  const bySymbol = new Map(snapshot.rows.map((r) => [r.symbol, r]));
+  const instruments = symbols.map((s) => getInstrument(s)).filter((i): i is Instrument => Boolean(i));
+  const missing = instruments.filter((i) => !bySymbol.has(i.symbol));
+  const extra = await mapLimit(missing, 4, (i) => cached(`row:${i.symbol}`, () => buildRow(i), ttl("snapshot")));
+  for (const r of extra) if (r.status === "fulfilled") bySymbol.set(r.value.value.row.symbol, r.value.value.row);
+  const rows = instruments.map((i) => bySymbol.get(i.symbol)).filter((r): r is InstrumentRow => r !== undefined);
+  return { rows, status: snapshot.status };
 }
 
 export function allSymbols(): string[] {

@@ -7,7 +7,7 @@
  * realistische Korrelationen zeigt. Ein Teil der Werte bekommt eine „Story“
  * (z. B. Buzz-Ausbruch), damit Signale entstehen.
  */
-import { EUR_USD, type IndexDef, type Instrument, type Region } from "@/config/universe";
+import { EUR_USD, type IndexDef, type Instrument, type Region, type SizeClass } from "@/config/universe";
 import type { SectorId } from "@/config/sectors";
 import { lexiconSentiment } from "@/lib/sentiment/lexicon";
 import { tradingDays, type Session } from "@/lib/market-time";
@@ -75,8 +75,13 @@ const SOCIAL: Record<string, number> = {
   TSLA: 9, NVDA: 8, GME: 7, PLTR: 7, AMD: 5, AAPL: 4, AMZN: 3.5, META: 3.5, MSFT: 3, GOOGL: 3, COIN: 5, HOOD: 5,
   SOFI: 5, RIVN: 4, SMCI: 5, MU: 3, INTC: 4, NFLX: 2.5, RDDT: 4, BA: 2.5, DIS: 2, F: 2.5, AVGO: 2.5, LLY: 2,
   UNH: 2.5, MRNA: 2.5, SNAP: 2.5, "BRK.B": 2, JPM: 1.5, CRWD: 2, ORCL: 2.5, ARM: 2,
+  MSTR: 6, AMC: 5, IONQ: 4, RGTI: 4, QBTS: 3.5, SOUN: 4, BBAI: 3, QUBT: 3, OKLO: 3.5, SMR: 3, ASTS: 4, RKLB: 4,
+  HIMS: 3.5, UPST: 2.5, AFRM: 2.5, MARA: 3, RIOT: 2.5, LCID: 3.5, PLUG: 3, OPEN: 4, ACHR: 3, JOBY: 2.5, LUNR: 3,
+  CVNA: 2, APP: 3, UBER: 2.5, DKNG: 2, CELH: 2, NVAX: 2, BYND: 2.5, PTON: 2, CLSK: 2, CAVA: 1.8, NNE: 2.5,
   "RHM.DE": 9, "SAP.DE": 5, "VOW3.DE": 5, "DBK.DE": 4, "CBK.DE": 4, "ENR.DE": 5, "IFX.DE": 4, "BAYN.DE": 5,
   "ZAL.DE": 3, "MBG.DE": 3, "BMW.DE": 3, "ALV.DE": 2.5, "DTE.DE": 2.5, "AIR.DE": 3, "HEN3.DE": 1.5, "SIE.DE": 3,
+  "HAG.DE": 4, "R3NK.DE": 5, "TKA.DE": 4, "LHA.DE": 2.5, "DHER.DE": 3, "PUM.DE": 2.5, "AIXA.DE": 3, "NDX1.DE": 2.5,
+  "HFG.DE": 3, "EVT.DE": 2.5, "TUI1.DE": 2.5, "SMHN.DE": 2.5, "S92.DE": 2.5, "P911.DE": 3, "FTK.DE": 2,
 };
 
 /** Volatilitäts-Multiplikator für spekulative Werte. */
@@ -84,7 +89,14 @@ const VOL_MULT: Record<string, number> = {
   GME: 2.6, RIVN: 2, SMCI: 2.3, PLTR: 1.8, COIN: 2, HOOD: 1.9, SOFI: 1.8, TSLA: 1.7, MRNA: 1.8, AMD: 1.4,
   NVDA: 1.4, MU: 1.4, RDDT: 2, SNAP: 1.8, INTC: 1.4, CRWD: 1.4, "RHM.DE": 1.6, "ENR.DE": 1.6, "ZAL.DE": 1.5,
   "BAYN.DE": 1.4, "CBK.DE": 1.3, "DBK.DE": 1.3,
+  MSTR: 2.2, APP: 1.9, IONQ: 1.9, RGTI: 2.1, QBTS: 2.1, SOUN: 1.9, BBAI: 1.7, QUBT: 1.9, OKLO: 2.2, SMR: 1.9,
+  ASTS: 2.2, RKLB: 2, HIMS: 2, UPST: 1.8, AFRM: 1.8, MARA: 1.8, RIOT: 1.8, CLSK: 1.8, AMC: 1.8, LCID: 1.4,
+  PLUG: 1.7, OPEN: 1.8, ACHR: 1.6, JOBY: 1.8, LUNR: 1.8, CVNA: 1.8, NNE: 1.8, "HAG.DE": 1.6, "R3NK.DE": 1.7,
+  "AIXA.DE": 1.4, "SMHN.DE": 1.4, "TKA.DE": 1.4,
 };
+
+/** Volatilität nach Größenklasse: kleinere Werte schwanken stärker. */
+const SIZE_VOL: Record<SizeClass, number> = { mega: 0.9, large: 1, mid: 1.3, small: 1.65 };
 
 /** Grobe Kursniveaus bekannter Werte (Demo), sonst aus dem Hash abgeleitet. */
 const PRICE: Record<string, number> = {
@@ -112,6 +124,16 @@ const FORCED_STORY: Record<string, Story> = {
   "ENR.DE": "buzz-bull",
   COIN: "momentum-up",
   NKE: "news",
+  RGTI: "buzz-bull",
+  "HAG.DE": "momentum-up",
+  OKLO: "volume",
+  AMC: "buzz-bear",
+  "AIXA.DE": "news",
+  HIMS: "sentiment-flip",
+  "TKA.DE": "buzz-bull",
+  PLUG: "momentum-down",
+  "SMHN.DE": "volume",
+  CELH: "news",
 };
 
 export function socialAffinity(symbol: string): number {
@@ -124,8 +146,10 @@ export function storyFor(instrument: Instrument): Story {
   const rng = createRng(`story:${instrument.symbol}`);
   const social = Math.min(socialAffinity(instrument.symbol), 5);
   const buzzBoost = (social - 1) * 0.03;
+  // Im breiten Universum passiert bei den meisten Werten wenig – nur so bleibt
+  // „relevant“ eine echte Auswahl.
   const table: [Story, number][] = [
-    ["calm", 0.56 - buzzBoost],
+    ["calm", 0.8 - buzzBoost],
     ["buzz-bull", 0.08 + buzzBoost],
     ["buzz-bear", 0.04 + buzzBoost / 2],
     ["momentum-up", 0.08],
@@ -238,18 +262,32 @@ function storyShape(story: Story, rng: Rng, dailyVol: number): StoryShape {
   }
 }
 
+/** Typische Kursspannen je Größenklasse (Demo). */
+const PRICE_RANGE: Record<SizeClass, [number, number]> = {
+  mega: [60, 700],
+  large: [25, 520],
+  mid: [8, 180],
+  small: [1.5, 45],
+};
+
 function targetPrice(instrument: Instrument): number {
   const known = PRICE[instrument.symbol];
   if (known) return known;
   const rng = createRng(`price:${instrument.symbol}`);
-  return Math.round(Math.exp(rng.range(Math.log(25), Math.log(520))) * 100) / 100;
+  const [lo, hi] = PRICE_RANGE[instrument.size];
+  return Math.round(Math.exp(rng.range(Math.log(lo), Math.log(hi))) * 100) / 100;
+}
+
+export function annualVolatility(instrument: Instrument): number {
+  return SECTOR_VOL[instrument.sector] * SIZE_VOL[instrument.size] * (VOL_MULT[instrument.symbol] ?? 1);
 }
 
 function baseVolume(instrument: Instrument): number {
   const capUsd = instrument.currency === "EUR" ? instrument.marketCapBn * EUR_USD : instrument.marketCapBn;
   const price = targetPrice(instrument);
-  // Umschlag ≈ 0,4 % der Marktkapitalisierung pro Tag (US), 0,25 % (DE)
-  const turnover = capUsd * 1e9 * (instrument.region === "US" ? 0.004 : 0.0025);
+  // Umschlag ≈ 0,4 % der Marktkapitalisierung pro Tag (US), 0,25 % (DE); kleine Werte drehen schneller
+  const sizeTurnover = instrument.size === "small" ? 2 : instrument.size === "mid" ? 1.4 : 1;
+  const turnover = capUsd * 1e9 * (instrument.region === "US" ? 0.004 : 0.0025) * sizeTurnover;
   return (turnover / price) * Math.sqrt(socialAffinity(instrument.symbol));
 }
 
@@ -267,7 +305,7 @@ export function generateInstrument(instrument: Instrument, nowMs: number): MockI
   const key = `${instrument.symbol}:${latest.day}:${latest.isOpen ? Math.floor(nowMs / 300_000) : "closed"}`;
   const hit = memo.get(key);
   if (hit) return hit;
-  if (memo.size > 400) memo.clear();
+  if (memo.size > 2000) memo.clear();
 
   const data = buildInstrument(instrument, sessions, nowMs);
   memo.set(key, data);
@@ -281,7 +319,7 @@ function buildInstrument(instrument: Instrument, sessions: Session[], nowMs: num
   const n = sessions.length;
   const latest = sessions[n - 1]!;
 
-  const annualVol = SECTOR_VOL[instrument.sector] * (VOL_MULT[sym] ?? 1) * rng.range(0.85, 1.15);
+  const annualVol = annualVolatility(instrument) * rng.range(0.85, 1.15);
   const dailyVol = annualVol / Math.sqrt(252);
   const shape = storyShape(story, createRng(`shape:${sym}`), dailyVol);
   const drift = rng.normal(0.09, 0.08) / 252;
@@ -575,7 +613,8 @@ function buildDiscussions(instrument: Instrument, shape: StoryShape, referenceMs
 function buildFundamentals(instrument: Instrument, daily: Candle[], annualVol: number): Fundamentals {
   const rng = createRng(`fundamentals:${instrument.symbol}`);
   const lastYear = daily.slice(-252);
-  const unprofitable = ["RIVN", "SNAP", "MRNA", "INTC"].includes(instrument.ticker) || rng.chance(0.03);
+  const lossChance = instrument.size === "small" ? 0.45 : instrument.size === "mid" ? 0.2 : 0.03;
+  const unprofitable = ["RIVN", "SNAP", "MRNA", "INTC"].includes(instrument.ticker) || rng.chance(lossChance);
   const pe = unprofitable ? null : Math.round(SECTOR_PE[instrument.sector] * Math.exp(rng.normal(0, 0.3)) * 10) / 10;
   const payer = !["tech", "communication"].includes(instrument.sector) || rng.chance(0.55);
   const div = payer ? Math.max(0, SECTOR_DIV[instrument.sector] * Math.exp(rng.normal(0, 0.35))) : 0;
@@ -636,7 +675,7 @@ export function generateIndex(index: IndexDef, nowMs: number): { daily: Candle[]
 export function weekCandles(instrument: Instrument, data: MockInstrumentData): Candle[] {
   const out: Candle[] = [];
   const n = data.sessions.length;
-  const vol = SECTOR_VOL[instrument.sector] * (VOL_MULT[instrument.symbol] ?? 1) / Math.sqrt(252);
+  const vol = annualVolatility(instrument) / Math.sqrt(252);
   for (let k = 4; k >= 1; k--) {
     const s = data.sessions[n - 1 - k]!;
     const prevClose = data.daily[n - 2 - k]?.c ?? data.daily[n - 1 - k]!.o;

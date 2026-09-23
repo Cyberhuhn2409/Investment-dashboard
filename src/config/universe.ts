@@ -1,17 +1,20 @@
 /**
- * Anlage-Universum von Signal: ~150 US-Large-Caps + DAX 40.
+ * Anlage-Universum von Signal: US-Werte aller Größenklassen (Mega bis Small Cap)
+ * sowie DAX, MDAX und SDAX.
  *
  * Einzige Quelle der Wahrheit für Symbole, Namen, Sektoren und Größenordnungen.
  * Marktkapitalisierungen sind gerundete Näherungen (Mrd., Heimatwährung) und dienen
- * als Fallback für die Heatmap-Kachelgröße und die Mock-Daten. Echte Provider
- * überschreiben sie, sofern verfügbar. Die DAX-Zusammensetzung ändert sich
- * quartalsweise – bitte bei Bedarf hier anpassen.
+ * für Größenklasse, Heatmap-Kachelgröße und Mock-Daten. Die Größenklasse wird aus
+ * der Marktkapitalisierung (in USD) abgeleitet. Index-Zusammensetzungen (DAX, MDAX,
+ * SDAX) ändern sich quartalsweise – bitte bei Bedarf hier anpassen.
  */
 import type { SectorId } from "./sectors";
 
 export type Region = "US" | "DE";
 export type Exchange = "NASDAQ" | "NYSE" | "XETRA";
 export type Currency = "USD" | "EUR";
+export type SizeClass = "mega" | "large" | "mid" | "small";
+export type IndexId = "DAX" | "MDAX" | "SDAX";
 
 export interface Instrument {
   /** App-weites Symbol. US: Ticker („AAPL“), Deutschland: Ticker + „.DE“ („SAP.DE“). */
@@ -25,12 +28,42 @@ export interface Instrument {
   sector: SectorId;
   /** Marktkapitalisierung in Mrd. Heimatwährung (Näherung). */
   marketCapBn: number;
+  /** Größenklasse nach Marktkapitalisierung in USD. */
+  size: SizeClass;
+  /** Deutscher Auswahlindex (nur XETRA-Werte). */
+  index: IndexId | null;
   /** Alternative Namen für Suche und Social-Matching. */
   aliases: string[];
 }
 
 /** EUR→USD für die Vergleichbarkeit der Kachelgrößen (bewusst statisch). */
 export const EUR_USD = 1.17;
+
+/** Größenklassen (Untergrenze in Mrd. USD), übliche Marktkonvention. */
+export const SIZE_CLASSES: readonly { id: SizeClass; label: string; short: string; minUsdBn: number; range: string }[] = [
+  { id: "mega", label: "Mega Caps", short: "Mega", minUsdBn: 200, range: "ab 200 Mrd. $" },
+  { id: "large", label: "Large Caps", short: "Large", minUsdBn: 10, range: "10–200 Mrd. $" },
+  { id: "mid", label: "Mid Caps", short: "Mid", minUsdBn: 2, range: "2–10 Mrd. $" },
+  { id: "small", label: "Small Caps", short: "Small", minUsdBn: 0, range: "unter 2 Mrd. $" },
+];
+
+export const INDEX_IDS: readonly IndexId[] = ["DAX", "MDAX", "SDAX"];
+
+export function sizeClassFor(capUsdBn: number): SizeClass {
+  return SIZE_CLASSES.find((c) => capUsdBn >= c.minUsdBn)?.id ?? "small";
+}
+
+export function sizeLabel(size: SizeClass): string {
+  return SIZE_CLASSES.find((c) => c.id === size)?.label ?? size;
+}
+
+export function isSizeClass(value: string): value is SizeClass {
+  return SIZE_CLASSES.some((c) => c.id === value);
+}
+
+export function isIndexId(value: string): value is IndexId {
+  return (INDEX_IDS as readonly string[]).includes(value);
+}
 
 type Row = [ticker: string, name: string, sector: SectorId, capBn: number, exchange: Exchange, aliases?: string[]];
 
@@ -196,6 +229,278 @@ const US: Row[] = [
   ["O", "Realty Income", "real-estate", 52, "NYSE"],
 ];
 
+/** Weitere US-Werte: Wachstums-/Momentum-Large-Caps, Mid Caps und Small Caps. */
+const US_EXTENDED: Row[] = [
+  // Technologie
+  ["ARM", "Arm Holdings", "tech", 150, "NASDAQ"],
+  ["APP", "AppLovin", "tech", 150, "NASDAQ"],
+  ["MSTR", "Strategy", "tech", 90, "NASDAQ", ["MicroStrategy"]],
+  ["DELL", "Dell Technologies", "tech", 85, "NYSE"],
+  ["NET", "Cloudflare", "tech", 70, "NYSE"],
+  ["SNOW", "Snowflake", "tech", 70, "NYSE"],
+  ["FTNT", "Fortinet", "tech", 65, "NASDAQ"],
+  ["WDAY", "Workday", "tech", 65, "NASDAQ"],
+  ["ADSK", "Autodesk", "tech", 65, "NASDAQ"],
+  ["DDOG", "Datadog", "tech", 45, "NASDAQ"],
+  ["TEAM", "Atlassian", "tech", 45, "NASDAQ"],
+  ["ZS", "Zscaler", "tech", 40, "NASDAQ"],
+  ["STX", "Seagate Technology", "tech", 35, "NASDAQ", ["Seagate"]],
+  ["WDC", "Western Digital", "tech", 30, "NASDAQ"],
+  ["HPE", "Hewlett Packard Enterprise", "tech", 28, "NYSE"],
+  ["HPQ", "HP Inc.", "tech", 26, "NYSE"],
+  ["ALAB", "Astera Labs", "tech", 25, "NASDAQ"],
+  ["HUBS", "HubSpot", "tech", 25, "NYSE"],
+  ["TTD", "The Trade Desk", "tech", 25, "NASDAQ"],
+  ["ZM", "Zoom Communications", "tech", 24, "NASDAQ", ["Zoom"]],
+  ["ON", "ON Semiconductor", "tech", 22, "NASDAQ", ["onsemi"]],
+  ["CRDO", "Credo Technology", "tech", 20, "NASDAQ"],
+  ["MDB", "MongoDB", "tech", 20, "NASDAQ"],
+  ["FSLR", "First Solar", "tech", 20, "NASDAQ"],
+  ["NTNX", "Nutanix", "tech", 19, "NASDAQ"],
+  ["OKTA", "Okta", "tech", 16, "NASDAQ"],
+  ["TWLO", "Twilio", "tech", 16, "NYSE"],
+  ["DOCU", "DocuSign", "tech", 15, "NASDAQ"],
+  ["IONQ", "IonQ", "tech", 12, "NYSE"],
+  ["U", "Unity Software", "tech", 9, "NYSE", ["Unity"]],
+  ["LSCC", "Lattice Semiconductor", "tech", 9, "NASDAQ"],
+  ["ESTC", "Elastic", "tech", 9, "NYSE"],
+  ["DBX", "Dropbox", "tech", 8, "NASDAQ"],
+  ["GTLB", "GitLab", "tech", 8, "NASDAQ"],
+  ["PATH", "UiPath", "tech", 7, "NYSE"],
+  ["CFLT", "Confluent", "tech", 7, "NASDAQ"],
+  ["MARA", "MARA Holdings", "tech", 6, "NASDAQ", ["Marathon Digital"]],
+  ["S", "SentinelOne", "tech", 6, "NYSE"],
+  ["CRUS", "Cirrus Logic", "tech", 6, "NASDAQ"],
+  ["AMKR", "Amkor Technology", "tech", 6, "NASDAQ"],
+  ["SITM", "SiTime", "tech", 6, "NASDAQ"],
+  ["VRNS", "Varonis Systems", "tech", 6, "NASDAQ", ["Varonis"]],
+  ["RGTI", "Rigetti Computing", "tech", 5, "NASDAQ", ["Rigetti"]],
+  ["QBTS", "D-Wave Quantum", "tech", 5, "NYSE", ["D-Wave"]],
+  ["SOUN", "SoundHound AI", "tech", 5, "NASDAQ", ["SoundHound"]],
+  ["QLYS", "Qualys", "tech", 5, "NASDAQ"],
+  ["BOX", "Box", "tech", 5, "NYSE"],
+  ["BILL", "BILL Holdings", "tech", 5, "NYSE"],
+  ["ENPH", "Enphase Energy", "tech", 5, "NASDAQ", ["Enphase"]],
+  ["RIOT", "Riot Platforms", "tech", 4, "NASDAQ"],
+  ["TENB", "Tenable", "tech", 4, "NASDAQ"],
+  ["ASAN", "Asana", "tech", 3.5, "NYSE"],
+  ["AI", "C3.ai", "tech", 3, "NYSE", ["C3 AI"]],
+  ["DOCN", "DigitalOcean", "tech", 3, "NYSE"],
+  ["CLSK", "CleanSpark", "tech", 3, "NASDAQ"],
+  ["APLD", "Applied Digital", "tech", 3, "NASDAQ"],
+  ["WULF", "TeraWulf", "tech", 3, "NASDAQ"],
+  ["ACLS", "Axcelis Technologies", "tech", 2.8, "NASDAQ", ["Axcelis"]],
+  ["HUT", "Hut 8", "tech", 2.5, "NASDAQ"],
+  ["CIFR", "Cipher Mining", "tech", 2.5, "NASDAQ"],
+  ["APPN", "Appian", "tech", 2.3, "NASDAQ"],
+  ["QUBT", "Quantum Computing Inc.", "tech", 1.9, "NASDAQ"],
+  ["BBAI", "BigBear.ai", "tech", 1.8, "NYSE", ["BigBear"]],
+  ["INOD", "Innodata", "tech", 1.5, "NASDAQ"],
+  ["NVTS", "Navitas Semiconductor", "tech", 1.5, "NASDAQ", ["Navitas"]],
+  ["SEDG", "SolarEdge", "tech", 1.5, "NASDAQ"],
+  ["PD", "PagerDuty", "tech", 1.5, "NYSE"],
+  ["RPD", "Rapid7", "tech", 1.3, "NASDAQ"],
+  ["FSLY", "Fastly", "tech", 1.2, "NYSE"],
+  ["OUST", "Ouster", "tech", 1.2, "NASDAQ"],
+  ["YEXT", "Yext", "tech", 1, "NYSE"],
+  ["AEHR", "Aehr Test Systems", "tech", 0.6, "NASDAQ", ["Aehr"]],
+  ["DOMO", "Domo", "tech", 0.5, "NASDAQ"],
+  ["KOPN", "Kopin", "tech", 0.3, "NASDAQ"],
+  // Kommunikation
+  ["RBLX", "Roblox", "communication", 80, "NYSE"],
+  ["LYV", "Live Nation", "communication", 33, "NYSE", ["Ticketmaster"]],
+  ["WBD", "Warner Bros. Discovery", "communication", 30, "NASDAQ", ["Warner Bros"]],
+  ["ASTS", "AST SpaceMobile", "communication", 15, "NASDAQ"],
+  ["ROKU", "Roku", "communication", 13, "NASDAQ"],
+  ["NYT", "New York Times", "communication", 9, "NYSE"],
+  ["SIRI", "Sirius XM", "communication", 8, "NASDAQ"],
+  ["MTCH", "Match Group", "communication", 8, "NASDAQ", ["Tinder"]],
+  ["GSAT", "Globalstar", "communication", 3, "NASDAQ"],
+  ["YELP", "Yelp", "communication", 2.3, "NYSE"],
+  ["AMC", "AMC Entertainment", "communication", 1.3, "NYSE", ["AMC Theatres"]],
+  ["FUBO", "fuboTV", "communication", 1.2, "NYSE", ["Fubo"]],
+  ["GRPN", "Groupon", "communication", 0.8, "NASDAQ"],
+  ["BMBL", "Bumble", "communication", 0.7, "NASDAQ"],
+  // Zyklischer Konsum
+  ["RCL", "Royal Caribbean", "consumer-discretionary", 80, "NYSE"],
+  ["MAR", "Marriott", "consumer-discretionary", 70, "NASDAQ"],
+  ["ROST", "Ross Stores", "consumer-discretionary", 48, "NASDAQ"],
+  ["CVNA", "Carvana", "consumer-discretionary", 45, "NYSE"],
+  ["EBAY", "eBay", "consumer-discretionary", 40, "NASDAQ"],
+  ["DKNG", "DraftKings", "consumer-discretionary", 20, "NASDAQ"],
+  ["DECK", "Deckers Outdoor", "consumer-discretionary", 16, "NYSE", ["Hoka", "UGG"]],
+  ["CHWY", "Chewy", "consumer-discretionary", 15, "NYSE"],
+  ["CAVA", "Cava Group", "consumer-discretionary", 10, "NYSE"],
+  ["HAS", "Hasbro", "consumer-discretionary", 10, "NASDAQ"],
+  ["BROS", "Dutch Bros", "consumer-discretionary", 9, "NYSE"],
+  ["WING", "Wingstop", "consumer-discretionary", 8, "NASDAQ"],
+  ["PLNT", "Planet Fitness", "consumer-discretionary", 8, "NYSE"],
+  ["LEVI", "Levi Strauss", "consumer-discretionary", 8, "NYSE", ["Levi's"]],
+  ["W", "Wayfair", "consumer-discretionary", 7, "NYSE"],
+  ["ETSY", "Etsy", "consumer-discretionary", 6, "NASDAQ"],
+  ["LCID", "Lucid Group", "consumer-discretionary", 6, "NASDAQ", ["Lucid Motors"]],
+  ["BBWI", "Bath & Body Works", "consumer-discretionary", 6, "NYSE"],
+  ["MAT", "Mattel", "consumer-discretionary", 6, "NASDAQ"],
+  ["VFC", "V.F. Corp", "consumer-discretionary", 6, "NYSE", ["The North Face", "Vans"]],
+  ["QS", "QuantumScape", "consumer-discretionary", 5, "NYSE"],
+  ["CROX", "Crocs", "consumer-discretionary", 5, "NASDAQ"],
+  ["SHAK", "Shake Shack", "consumer-discretionary", 4, "NYSE"],
+  ["M", "Macy's", "consumer-discretionary", 4, "NYSE"],
+  ["RH", "RH", "consumer-discretionary", 4, "NYSE", ["Restoration Hardware"]],
+  ["PTON", "Peloton", "consumer-discretionary", 3, "NASDAQ"],
+  ["HOG", "Harley-Davidson", "consumer-discretionary", 3, "NYSE"],
+  ["UA", "Under Armour", "consumer-discretionary", 2.5, "NYSE"],
+  ["AEO", "American Eagle Outfitters", "consumer-discretionary", 2.5, "NYSE", ["American Eagle"]],
+  ["KSS", "Kohl's", "consumer-discretionary", 1.5, "NYSE"],
+  ["FIGS", "FIGS", "consumer-discretionary", 1, "NYSE"],
+  ["REAL", "The RealReal", "consumer-discretionary", 1, "NASDAQ", ["RealReal"]],
+  ["SFIX", "Stitch Fix", "consumer-discretionary", 0.6, "NASDAQ"],
+  ["DNUT", "Krispy Kreme", "consumer-discretionary", 0.6, "NASDAQ"],
+  ["GPRO", "GoPro", "consumer-discretionary", 0.2, "NASDAQ"],
+  // Basiskonsum
+  ["HSY", "Hershey", "consumer-staples", 35, "NYSE"],
+  ["KHC", "Kraft Heinz", "consumer-staples", 32, "NASDAQ"],
+  ["STZ", "Constellation Brands", "consumer-staples", 25, "NYSE", ["Corona"]],
+  ["SFM", "Sprouts Farmers Market", "consumer-staples", 14, "NASDAQ", ["Sprouts"]],
+  ["BJ", "BJ's Wholesale Club", "consumer-staples", 12, "NYSE"],
+  ["CELH", "Celsius Holdings", "consumer-staples", 12, "NASDAQ", ["Celsius"]],
+  ["ELF", "e.l.f. Beauty", "consumer-staples", 6, "NYSE", ["elf"]],
+  ["COTY", "Coty", "consumer-staples", 4, "NYSE"],
+  ["FRPT", "Freshpet", "consumer-staples", 3, "NASDAQ"],
+  ["VITL", "Vital Farms", "consumer-staples", 2, "NASDAQ"],
+  ["HLF", "Herbalife", "consumer-staples", 1, "NYSE"],
+  ["BYND", "Beyond Meat", "consumer-staples", 0.3, "NASDAQ"],
+  // Gesundheit
+  ["HCA", "HCA Healthcare", "health", 95, "NYSE"],
+  ["ELV", "Elevance Health", "health", 75, "NYSE"],
+  ["ZTS", "Zoetis", "health", 65, "NYSE"],
+  ["REGN", "Regeneron", "health", 60, "NASDAQ"],
+  ["ALNY", "Alnylam Pharmaceuticals", "health", 55, "NASDAQ", ["Alnylam"]],
+  ["DXCM", "Dexcom", "health", 28, "NASDAQ"],
+  ["INSM", "Insmed", "health", 25, "NASDAQ"],
+  ["NTRA", "Natera", "health", 22, "NASDAQ"],
+  ["BIIB", "Biogen", "health", 20, "NASDAQ"],
+  ["ILMN", "Illumina", "health", 15, "NASDAQ"],
+  ["HIMS", "Hims & Hers Health", "health", 12, "NYSE", ["Hims"]],
+  ["DOCS", "Doximity", "health", 12, "NYSE"],
+  ["EXAS", "Exact Sciences", "health", 10, "NASDAQ"],
+  ["HALO", "Halozyme", "health", 8, "NASDAQ"],
+  ["GH", "Guardant Health", "health", 6, "NASDAQ", ["Guardant"]],
+  ["CRSP", "CRISPR Therapeutics", "health", 5, "NASDAQ", ["CRISPR"]],
+  ["OSCR", "Oscar Health", "health", 4, "NYSE"],
+  ["TMDX", "TransMedics", "health", 4, "NASDAQ"],
+  ["VKTX", "Viking Therapeutics", "health", 3.5, "NASDAQ", ["Viking"]],
+  ["RXRX", "Recursion Pharmaceuticals", "health", 2.5, "NASDAQ", ["Recursion"]],
+  ["BEAM", "Beam Therapeutics", "health", 2.3, "NASDAQ"],
+  ["TDOC", "Teladoc Health", "health", 1.5, "NYSE", ["Teladoc"]],
+  ["NVAX", "Novavax", "health", 1.3, "NASDAQ"],
+  ["NTLA", "Intellia Therapeutics", "health", 1.2, "NASDAQ", ["Intellia"]],
+  ["SANA", "Sana Biotechnology", "health", 0.8, "NASDAQ"],
+  ["IOVA", "Iovance Biotherapeutics", "health", 0.8, "NASDAQ", ["Iovance"]],
+  ["BFLY", "Butterfly Network", "health", 0.6, "NYSE"],
+  ["PACB", "Pacific Biosciences", "health", 0.4, "NASDAQ", ["PacBio"]],
+  ["OCGN", "Ocugen", "health", 0.3, "NASDAQ"],
+  ["EDIT", "Editas Medicine", "health", 0.2, "NASDAQ", ["Editas"]],
+  // Finanzen
+  ["BX", "Blackstone", "financials", 200, "NYSE"],
+  ["KKR", "KKR", "financials", 120, "NYSE"],
+  ["IBKR", "Interactive Brokers", "financials", 100, "NASDAQ"],
+  ["APO", "Apollo Global Management", "financials", 80, "NYSE", ["Apollo"]],
+  ["PNC", "PNC Financial", "financials", 75, "NYSE"],
+  ["USB", "U.S. Bancorp", "financials", 72, "NYSE"],
+  ["XYZ", "Block", "financials", 40, "NYSE", ["Square", "Cash App"]],
+  ["AFRM", "Affirm", "financials", 25, "NASDAQ"],
+  ["TOST", "Toast", "financials", 20, "NYSE"],
+  ["ALLY", "Ally Financial", "financials", 12, "NYSE"],
+  ["JEF", "Jefferies", "financials", 12, "NYSE"],
+  ["WAL", "Western Alliance", "financials", 9, "NYSE"],
+  ["ZION", "Zions Bancorporation", "financials", 8, "NASDAQ", ["Zions"]],
+  ["UPST", "Upstart", "financials", 5, "NASDAQ"],
+  ["FLG", "Flagstar Financial", "financials", 4.5, "NYSE", ["New York Community Bancorp"]],
+  ["LMND", "Lemonade", "financials", 3, "NYSE"],
+  ["DAVE", "Dave", "financials", 2.5, "NASDAQ"],
+  ["MQ", "Marqeta", "financials", 2.5, "NASDAQ"],
+  ["PAYO", "Payoneer", "financials", 2.5, "NASDAQ"],
+  ["LC", "LendingClub", "financials", 1.7, "NYSE"],
+  ["ROOT", "Root", "financials", 1.5, "NASDAQ"],
+  // Industrie
+  ["UBER", "Uber Technologies", "industrials", 190, "NYSE", ["Uber"]],
+  ["GEV", "GE Vernova", "industrials", 160, "NYSE"],
+  ["PH", "Parker-Hannifin", "industrials", 90, "NYSE"],
+  ["GD", "General Dynamics", "industrials", 85, "NYSE"],
+  ["NOC", "Northrop Grumman", "industrials", 80, "NYSE"],
+  ["CSX", "CSX", "industrials", 65, "NASDAQ"],
+  ["AXON", "Axon Enterprise", "industrials", 55, "NASDAQ", ["Taser"]],
+  ["VRT", "Vertiv", "industrials", 50, "NYSE"],
+  ["LHX", "L3Harris Technologies", "industrials", 50, "NYSE", ["L3Harris"]],
+  ["RKLB", "Rocket Lab", "industrials", 20, "NASDAQ"],
+  ["LUV", "Southwest Airlines", "industrials", 18, "NYSE"],
+  ["JOBY", "Joby Aviation", "industrials", 11, "NYSE"],
+  ["AVAV", "AeroVironment", "industrials", 10, "NASDAQ"],
+  ["BE", "Bloom Energy", "industrials", 10, "NYSE"],
+  ["AAL", "American Airlines", "industrials", 8, "NASDAQ"],
+  ["KTOS", "Kratos Defense", "industrials", 8, "NASDAQ", ["Kratos"]],
+  ["SMR", "NuScale Power", "industrials", 8, "NYSE", ["NuScale"]],
+  ["LYFT", "Lyft", "industrials", 6, "NASDAQ"],
+  ["ACHR", "Archer Aviation", "industrials", 6, "NYSE", ["Archer"]],
+  ["CAR", "Avis Budget Group", "industrials", 4, "NASDAQ", ["Avis"]],
+  ["RUN", "Sunrun", "industrials", 3, "NASDAQ"],
+  ["PL", "Planet Labs", "industrials", 2, "NYSE"],
+  ["PLUG", "Plug Power", "industrials", 2, "NASDAQ"],
+  ["LUNR", "Intuitive Machines", "industrials", 2, "NASDAQ"],
+  ["HTZ", "Hertz", "industrials", 2, "NASDAQ"],
+  ["ENVX", "Enovix", "industrials", 1.8, "NASDAQ"],
+  ["JBLU", "JetBlue Airways", "industrials", 1.7, "NASDAQ", ["JetBlue"]],
+  ["NNE", "Nano Nuclear Energy", "industrials", 1.5, "NASDAQ"],
+  ["RDW", "Redwire", "industrials", 1.5, "NYSE"],
+  ["ARRY", "Array Technologies", "industrials", 1.2, "NASDAQ"],
+  ["EVGO", "EVgo", "industrials", 1.2, "NASDAQ"],
+  ["BKSY", "BlackSky Technology", "industrials", 0.6, "NYSE", ["BlackSky"]],
+  ["FCEL", "FuelCell Energy", "industrials", 0.2, "NASDAQ"],
+  // Energie
+  ["WMB", "Williams Companies", "energy", 70, "NYSE"],
+  ["KMI", "Kinder Morgan", "energy", 60, "NYSE"],
+  ["PSX", "Phillips 66", "energy", 52, "NYSE"],
+  ["VLO", "Valero Energy", "energy", 45, "NYSE", ["Valero"]],
+  ["DVN", "Devon Energy", "energy", 22, "NYSE"],
+  ["AR", "Antero Resources", "energy", 10, "NYSE"],
+  ["APA", "APA Corporation", "energy", 8, "NASDAQ", ["Apache"]],
+  ["UEC", "Uranium Energy", "energy", 4, "NYSE"],
+  ["RIG", "Transocean", "energy", 3, "NYSE"],
+  ["LEU", "Centrus Energy", "energy", 3, "NYSE", ["Centrus"]],
+  ["TALO", "Talos Energy", "energy", 1.8, "NYSE"],
+  ["UUUU", "Energy Fuels", "energy", 1.5, "NYSE"],
+  ["KOS", "Kosmos Energy", "energy", 0.9, "NYSE"],
+  // Grundstoffe
+  ["NUE", "Nucor", "materials", 32, "NYSE"],
+  ["DOW", "Dow", "materials", 17, "NYSE", ["Dow Chemical"]],
+  ["MP", "MP Materials", "materials", 10, "NYSE"],
+  ["MOS", "Mosaic", "materials", 10, "NYSE"],
+  ["ALB", "Albemarle", "materials", 9, "NYSE"],
+  ["AA", "Alcoa", "materials", 8, "NYSE"],
+  ["CDE", "Coeur Mining", "materials", 6, "NYSE"],
+  ["CLF", "Cleveland-Cliffs", "materials", 5, "NYSE"],
+  ["HL", "Hecla Mining", "materials", 5, "NYSE", ["Hecla"]],
+  ["CENX", "Century Aluminum", "materials", 1.8, "NASDAQ"],
+  ["LAC", "Lithium Americas", "materials", 1, "NYSE"],
+  // Versorger
+  ["AEP", "American Electric Power", "utilities", 58, "NASDAQ"],
+  ["D", "Dominion Energy", "utilities", 50, "NYSE", ["Dominion"]],
+  ["NRG", "NRG Energy", "utilities", 30, "NYSE"],
+  ["TLN", "Talen Energy", "utilities", 17, "NASDAQ"],
+  ["OKLO", "Oklo", "utilities", 12, "NYSE"],
+  ["AES", "AES", "utilities", 9, "NYSE"],
+  // Immobilien
+  ["WELL", "Welltower", "real-estate", 110, "NYSE"],
+  ["DLR", "Digital Realty", "real-estate", 58, "NYSE"],
+  ["PSA", "Public Storage", "real-estate", 50, "NYSE"],
+  ["Z", "Zillow Group", "real-estate", 17, "NASDAQ", ["Zillow"]],
+  ["COMP", "Compass", "real-estate", 4, "NYSE"],
+  ["MPW", "Medical Properties Trust", "real-estate", 3, "NYSE"],
+  ["OPEN", "Opendoor Technologies", "real-estate", 2, "NASDAQ", ["Opendoor"]],
+  ["EXPI", "eXp World Holdings", "real-estate", 1.5, "NASDAQ", ["eXp Realty"]],
+];
+
 const DAX: Row[] = [
   ["SAP", "SAP", "tech", 280, "XETRA"],
   ["SIE", "Siemens", "industrials", 180, "XETRA"],
@@ -239,22 +544,125 @@ const DAX: Row[] = [
   ["G24", "Scout24", "communication", 7, "XETRA", ["ImmoScout24"]],
 ];
 
-function toInstrument([ticker, name, sector, capBn, exchange, aliases = []]: Row): Instrument {
-  const de = exchange === "XETRA";
-  return {
-    symbol: de ? `${ticker}.DE` : ticker,
-    ticker,
-    name,
-    region: de ? "DE" : "US",
-    exchange,
-    currency: de ? "EUR" : "USD",
-    sector,
-    marketCapBn: capBn,
-    aliases,
+const MDAX: Row[] = [
+  ["P911", "Porsche AG", "consumer-discretionary", 40, "XETRA", ["Porsche"]],
+  ["TLX", "Talanx", "financials", 28, "XETRA"],
+  ["8TRA", "Traton", "industrials", 15, "XETRA"],
+  ["HOT", "Hochtief", "industrials", 14, "XETRA"],
+  ["KBX", "Knorr-Bremse", "industrials", 14, "XETRA"],
+  ["NEM", "Nemetschek", "tech", 13, "XETRA"],
+  ["PAH3", "Porsche SE", "financials", 12, "XETRA", ["Porsche Automobil Holding"]],
+  ["HAG", "Hensoldt", "industrials", 10, "XETRA"],
+  ["DWS", "DWS Group", "financials", 10, "XETRA"],
+  ["EVD", "CTS Eventim", "communication", 9, "XETRA", ["Eventim"]],
+  ["LHA", "Lufthansa", "industrials", 9, "XETRA", ["Deutsche Lufthansa"]],
+  ["DWNI", "Deutsche Wohnen", "real-estate", 9, "XETRA"],
+  ["EVK", "Evonik", "materials", 8, "XETRA"],
+  ["RAA", "Rational", "industrials", 8, "XETRA"],
+  ["KGX", "Kion Group", "industrials", 7, "XETRA", ["Kion"]],
+  ["DHER", "Delivery Hero", "consumer-discretionary", 7, "XETRA", ["Lieferando", "Foodpanda"]],
+  ["R3NK", "Renk Group", "industrials", 6, "XETRA", ["Renk"]],
+  ["TKA", "thyssenkrupp", "industrials", 6, "XETRA", ["Thyssen", "Thyssenkrupp"]],
+  ["FRA", "Fraport", "industrials", 6, "XETRA"],
+  ["LEG", "LEG Immobilien", "real-estate", 6, "XETRA"],
+  ["AG1", "Auto1 Group", "consumer-discretionary", 6, "XETRA", ["Autohero"]],
+  ["FPE3", "Fuchs Vz.", "materials", 5.5, "XETRA", ["Fuchs Petrolub"]],
+  ["BC8", "Bechtle", "tech", 5, "XETRA"],
+  ["AFX", "Carl Zeiss Meditec", "health", 5, "XETRA", ["Zeiss"]],
+  ["IOS", "IONOS Group", "tech", 5, "XETRA", ["IONOS"]],
+  ["TUI1", "TUI", "consumer-discretionary", 4.5, "XETRA"],
+  ["NDA", "Aurubis", "materials", 4, "XETRA"],
+  ["KRN", "Krones", "industrials", 4, "XETRA"],
+  ["UTDI", "United Internet", "communication", 4, "XETRA"],
+  ["NDX1", "Nordex", "industrials", 4, "XETRA"],
+  ["SHA0", "Schaeffler", "consumer-discretionary", 4, "XETRA"],
+  ["FNTN", "freenet", "communication", 3.5, "XETRA"],
+  ["AT1", "Aroundtown", "real-estate", 3.5, "XETRA"],
+  ["WCH", "Wacker Chemie", "materials", 3.5, "XETRA", ["Wacker"]],
+  ["JUN3", "Jungheinrich Vz.", "industrials", 3.5, "XETRA", ["Jungheinrich"]],
+  ["SIX2", "Sixt", "industrials", 3.5, "XETRA"],
+  ["PUM", "Puma", "consumer-discretionary", 3, "XETRA"],
+  ["BOSS", "Hugo Boss", "consumer-discretionary", 3, "XETRA"],
+  ["GBF", "Bilfinger", "industrials", 3, "XETRA"],
+  ["TEG", "TAG Immobilien", "real-estate", 2.8, "XETRA"],
+  ["SDF", "K+S", "materials", 2.3, "XETRA", ["K und S", "Kali und Salz"]],
+  ["LXS", "Lanxess", "materials", 2.2, "XETRA"],
+  ["HFG", "HelloFresh", "consumer-staples", 2, "XETRA"],
+  ["AIXA", "Aixtron", "tech", 1.8, "XETRA"],
+  ["GXI", "Gerresheimer", "health", 1.5, "XETRA"],
+];
+
+const SDAX: Row[] = [
+  ["1U1", "1&1", "communication", 3, "XETRA", ["1und1", "Eins und Eins"]],
+  ["FTK", "flatexDEGIRO", "financials", 2.5, "XETRA", ["flatex", "DEGIRO"]],
+  ["SAX", "Ströer", "communication", 2.5, "XETRA", ["Stroeer"]],
+  ["SZU", "Südzucker", "consumer-staples", 2.3, "XETRA", ["Suedzucker"]],
+  ["GYC", "Grand City Properties", "real-estate", 2, "XETRA"],
+  ["DMP", "Dermapharm", "health", 2, "XETRA"],
+  ["KWS", "KWS Saat", "consumer-staples", 2, "XETRA"],
+  ["CEC", "Ceconomy", "consumer-discretionary", 2, "XETRA", ["MediaMarkt", "Saturn"]],
+  ["AOF", "Atoss Software", "tech", 1.8, "XETRA", ["Atoss"]],
+  ["TMV", "TeamViewer", "tech", 1.5, "XETRA"],
+  ["WAF", "Siltronic", "tech", 1.5, "XETRA"],
+  ["ELG", "Elmos Semiconductor", "tech", 1.5, "XETRA", ["Elmos"]],
+  ["DUE", "Dürr", "industrials", 1.5, "XETRA", ["Duerr"]],
+  ["VOS", "Vossloh", "industrials", 1.5, "XETRA"],
+  ["VH2", "Friedrich Vorwerk", "industrials", 1.5, "XETRA", ["Vorwerk"]],
+  ["HHFA", "HHLA", "industrials", 1.5, "XETRA", ["Hamburger Hafen"]],
+  ["WAC", "Wacker Neuson", "industrials", 1.4, "XETRA"],
+  ["EVT", "Evotec", "health", 1.3, "XETRA"],
+  ["PSM", "ProSiebenSat.1", "communication", 1.3, "XETRA", ["ProSieben"]],
+  ["JEN", "Jenoptik", "tech", 1.2, "XETRA"],
+  ["SZG", "Salzgitter", "materials", 1.2, "XETRA"],
+  ["EUZ", "Eckert & Ziegler", "health", 1.2, "XETRA"],
+  ["DRW3", "Drägerwerk Vz.", "health", 1.2, "XETRA", ["Dräger", "Draeger"]],
+  ["BFSA", "Befesa", "industrials", 1.2, "XETRA"],
+  ["HYQ", "Hypoport", "financials", 1, "XETRA"],
+  ["NA9", "Nagarro", "tech", 1, "XETRA"],
+  ["DEZ", "Deutz", "industrials", 1, "XETRA"],
+  ["PNE3", "PNE", "utilities", 1, "XETRA"],
+  ["MLP", "MLP", "financials", 0.9, "XETRA"],
+  ["SMHN", "SÜSS MicroTec", "tech", 0.8, "XETRA", ["Suss Microtec", "Suess"]],
+  ["COK", "Cancom", "tech", 0.8, "XETRA"],
+  ["PBB", "Deutsche Pfandbriefbank", "financials", 0.8, "XETRA", ["pbb"]],
+  ["S92", "SMA Solar", "tech", 0.7, "XETRA"],
+  ["SFQ", "SAF-Holland", "industrials", 0.7, "XETRA"],
+  ["STM", "Stabilus", "industrials", 0.7, "XETRA"],
+  ["ADN1", "adesso", "tech", 0.6, "XETRA"],
+  ["MUX", "Mutares", "financials", 0.6, "XETRA"],
+  ["GFT", "GFT Technologies", "tech", 0.5, "XETRA"],
+  ["VBK", "Verbio", "energy", 0.5, "XETRA"],
+  ["HDD", "Heidelberger Druck", "industrials", 0.5, "XETRA", ["Heideldruck"]],
+  ["SGL", "SGL Carbon", "materials", 0.5, "XETRA"],
+];
+
+function toInstrument(index: IndexId | null) {
+  return ([ticker, name, sector, capBn, exchange, aliases = []]: Row): Instrument => {
+    const de = exchange === "XETRA";
+    const currency: Currency = de ? "EUR" : "USD";
+    return {
+      symbol: de ? `${ticker}.DE` : ticker,
+      ticker,
+      name,
+      region: de ? "DE" : "US",
+      exchange,
+      currency,
+      sector,
+      marketCapBn: capBn,
+      size: sizeClassFor(currency === "EUR" ? capBn * EUR_USD : capBn),
+      index,
+      aliases,
+    };
   };
 }
 
-export const UNIVERSE: readonly Instrument[] = [...US, ...DAX].map(toInstrument);
+export const UNIVERSE: readonly Instrument[] = [
+  ...US.map(toInstrument(null)),
+  ...US_EXTENDED.map(toInstrument(null)),
+  ...DAX.map(toInstrument("DAX")),
+  ...MDAX.map(toInstrument("MDAX")),
+  ...SDAX.map(toInstrument("SDAX")),
+];
 
 const bySymbol = new Map(UNIVERSE.map((i) => [i.symbol.toUpperCase(), i]));
 
