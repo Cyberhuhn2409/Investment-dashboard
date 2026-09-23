@@ -95,13 +95,11 @@ export function Movers({ data }: { data: Record<MoverSegment, { gainers: Compact
         />
         <SegmentedControl label="Größenklasse" value={segment} onChange={setSegment} options={SEGMENTS} size="sm" />
       </div>
-      <div className="panel mx-4 overflow-hidden lg:hidden" aria-live="polite">
-        <MoverList rows={mode === "up" ? current.gainers : current.losers} kind={mode} />
-      </div>
-      <div className="hidden gap-6 lg:grid lg:grid-cols-2" aria-live="polite">
+      {/* Mobil: umschaltbar (inaktive Liste ausgeblendet), ab lg nebeneinander */}
+      <div className="px-4 lg:grid lg:grid-cols-2 lg:gap-6 lg:px-0" aria-live="polite">
         {(["up", "down"] as const).map((kind) => (
-          <div key={kind} className="panel overflow-hidden">
-            <p className={`label-mono border-b border-line px-4 py-2 ${kind === "up" ? "text-up" : "text-down"}`}>
+          <div key={kind} className={`panel overflow-hidden ${mode === kind ? "" : "hidden lg:block"}`}>
+            <p className={`label-mono hidden border-b border-line px-4 py-2 lg:block ${kind === "up" ? "text-up" : "text-down"}`}>
               {kind === "up" ? "▲ Gewinner" : "▼ Verlierer"}
             </p>
             <MoverList rows={kind === "up" ? current.gainers : current.losers} kind={kind} />

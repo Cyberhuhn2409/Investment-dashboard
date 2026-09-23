@@ -10,16 +10,13 @@ export interface DiscoverRow {
   name: string;
   sector: SectorId;
   region: "US" | "DE";
-  exchange: string;
   currency: "USD" | "EUR";
   size: SizeClass;
   index: IndexId | null;
   price: number;
   d1: number;
   spark: number[];
-  mentions: number;
   buzz: number;
-  sentiment: number | null;
   score: number;
   type: SignalType;
   direction: SignalDirection;

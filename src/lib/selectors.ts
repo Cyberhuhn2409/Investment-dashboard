@@ -141,7 +141,7 @@ export interface TapeItem {
 }
 
 /** Laufband: Indizes + die relevantesten Werte. */
-export function tapeItems(indices: readonly IndexRow[], rows: readonly InstrumentRow[], count = 16): TapeItem[] {
+export function tapeItems(indices: readonly IndexRow[], rows: readonly InstrumentRow[], count = 14): TapeItem[] {
   const idx: TapeItem[] = indices.map((i) => ({
     key: i.id,
     label: i.name,

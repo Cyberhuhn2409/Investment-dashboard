@@ -19,7 +19,7 @@ import {
 } from "@/lib/discover";
 import { formatPercent } from "@/lib/format";
 import { instrumentHref, sharedName } from "@/lib/view-transition";
-import { FilterIcon } from "../icons";
+import { AlertIcon, FilterIcon } from "../icons";
 import { LiveChange, LivePrice } from "../live/live-values";
 import { DirectionBadge, SignalTypeBadge } from "../ui/badges";
 import { Monogram } from "../ui/monogram";
@@ -28,9 +28,10 @@ import { SegmentedControl } from "../ui/segmented";
 import { Sheet } from "../ui/sheet";
 import { Sparkline } from "../ui/sparkline";
 import { LinkPending } from "../ui/link-pending";
+import { LoadingAnnouncement, SkeletonList } from "../ui/skeleton";
 import { FilterPanel, SegmentChips } from "./filter-panel";
 
-const PAGE = 50;
+const PAGE = 30;
 const SIZE_SHORT = new Map(SIZE_CLASSES.map((c) => [c.id, c.short]));
 
 /**
@@ -108,7 +109,12 @@ function Row({ r }: { r: DiscoverRow }) {
         <p className="mt-0.5 truncate text-[0.75rem] text-fg-2 @2xl:mt-0">{r.highlight}</p>
       </div>
       <div className="flex flex-col items-end gap-1 @2xl:contents">
-        <LivePrice symbol={r.symbol} price={r.price} currency={r.currency} className="text-right text-[0.875rem] @2xl:justify-self-end" />
+        <LivePrice
+          symbol={r.symbol}
+          price={r.price}
+          currency={r.currency}
+          className="text-right text-[0.875rem] @2xl:justify-self-end"
+        />
         <LiveChange symbol={r.symbol} price={r.price} changePct={r.d1} pill className="justify-self-end" />
       </div>
       <ScoreRing score={r.score} size={38} stroke={3.5} className="justify-self-center" />
@@ -133,10 +139,36 @@ function Row({ r }: { r: DiscoverRow }) {
   );
 }
 
-export function DiscoverList({ rows }: { rows: DiscoverRow[] }) {
+type AllRows = { kind: "ready"; rows: DiscoverRow[] } | { kind: "error" } | null;
+
+/**
+ * Liste mit Filtern. Das HTML enthält nur die relevanten Werte; das gesamte
+ * Universum wird erst geladen, wenn „Alle“ gewählt wird.
+ */
+export function DiscoverList({ relevantRows, total }: { relevantRows: DiscoverRow[]; total: number }) {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [sheet, setSheet] = useState(false);
   const [limit, setLimit] = useState(PAGE);
+  const [all, setAll] = useState<AllRows>(null);
+  const [attempt, setAttempt] = useState(0);
+  const needAll = filters.scope === "all";
+
+  useEffect(() => {
+    if (!needAll || all?.kind === "ready") return;
+    const ctrl = new AbortController();
+    fetch("/api/discover", { signal: ctrl.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        const json = (await res.json()) as { rows: DiscoverRow[] };
+        setAll({ kind: "ready", rows: json.rows });
+      })
+      .catch((e: unknown) => {
+        if ((e as Error).name !== "AbortError") setAll({ kind: "error" });
+      });
+    return () => ctrl.abort();
+    // `all` bewusst nicht als Abhängigkeit: nach einem Fehler lädt erst „Erneut versuchen“ (attempt).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needAll, attempt]);
 
   // Filter aus der URL übernehmen (teilbare Links) …
   useEffect(() => {
@@ -154,8 +186,16 @@ export function DiscoverList({ rows }: { rows: DiscoverRow[] }) {
     window.history.replaceState(window.history.state, "", qs ? `?${qs}` : window.location.pathname);
   }, []);
 
+  const allRows = all?.kind === "ready" ? all.rows : null;
+  const rows = allRows ?? relevantRows;
   const result = useMemo(() => applyFilters(rows, filters), [rows, filters]);
-  const counts = useMemo(() => scopeCounts(rows, filters), [rows, filters]);
+  const counts = useMemo(() => {
+    const c = scopeCounts(rows, filters);
+    // Ohne geladene Gesamtliste ist „Alle“ nur ohne Filter bekannt
+    return { relevant: c.relevant, all: allRows ? c.all : activeFilterCount(filters) === 0 ? total : null };
+  }, [rows, allRows, filters, total]);
+  const loadingAll = needAll && !allRows && all?.kind !== "error";
+  const failedAll = needAll && all?.kind === "error";
   const visible = result.slice(0, limit);
   const count = activeFilterCount(filters);
   const reset = () => update({ ...DEFAULT_FILTERS, scope: filters.scope });
@@ -169,8 +209,16 @@ export function DiscoverList({ rows }: { rows: DiscoverRow[] }) {
             value={filters.scope}
             onChange={(scope) => update({ ...filters, scope })}
             options={[
-              { value: "relevant", label: `Relevant · ${counts.relevant}`, ariaLabel: `Nur relevante Werte (${counts.relevant})` },
-              { value: "all", label: `Alle · ${counts.all}`, ariaLabel: `Alle Werte (${counts.all})` },
+              {
+                value: "relevant",
+                label: `Relevant · ${counts.relevant}`,
+                ariaLabel: `Nur relevante Werte (${counts.relevant})`,
+              },
+              {
+                value: "all",
+                label: counts.all === null ? "Alle" : `Alle · ${counts.all}`,
+                ariaLabel: counts.all === null ? "Alle Werte" : `Alle Werte (${counts.all})`,
+              },
             ]}
           />
           <button
@@ -185,75 +233,126 @@ export function DiscoverList({ rows }: { rows: DiscoverRow[] }) {
             Filter{count > 0 ? ` · ${count}` : ""}
           </button>
         </div>
-        <div className="no-scrollbar relative mt-2.5 flex items-center gap-2 overflow-x-auto px-4 pb-1 lg:px-0" role="group" aria-label="Größe und Index">
+        <div
+          className="no-scrollbar relative mt-2.5 flex items-center gap-2 overflow-x-auto px-4 pb-1 lg:px-0"
+          role="group"
+          aria-label="Größe und Index"
+        >
           <SegmentChips filters={filters} onChange={update} />
         </div>
 
-        <div className="mt-3 flex items-center justify-between px-4 text-[0.8125rem] text-fg-2 lg:px-0" role="status" aria-live="polite">
-          <span>
-            <span className="tnum font-semibold text-fg">{result.length}</span>{" "}
-            {filters.scope === "relevant" ? (result.length === 1 ? "relevanter Wert" : "relevante Werte") : result.length === 1 ? "Wert" : "Werte"}
-            {filters.minScore > 0 && ` · Score ≥ ${filters.minScore}`}
-            {filters.scope === "relevant" && (
-              <span className="hidden sm:inline"> · Score ≥ 60 oder Tagesbewegung ≥ 2,5σ</span>
-            )}
-          </span>
-          {count > 0 && (
-            <button type="button" onClick={reset} className="font-medium text-accent">
-              Zurücksetzen
-            </button>
-          )}
-        </div>
-
-        {result.length === 0 ? (
-          <div className="panel mx-4 mt-3 px-6 py-12 text-center lg:mx-0">
-            <FilterIcon size={30} className="mx-auto text-fg-3" />
-            <p className="mt-3 text-[1.0625rem] font-semibold">
-              {filters.scope === "relevant" && counts.all > 0 ? "Gerade nichts Auffälliges" : "Keine Werte für diese Filter"}
-            </p>
-            <p className="mt-1 text-[0.9375rem] text-fg-2">
-              {filters.scope === "relevant" && counts.all > 0
-                ? `In dieser Auswahl ist aktuell kein Wert relevant. ${counts.all} Werte passen zu den Filtern.`
-                : "Senke den Mindest-Score oder entferne einzelne Filter."}
-            </p>
-            <div className="mt-5 flex flex-wrap justify-center gap-2">
-              {filters.scope === "relevant" && counts.all > 0 && (
-                <button
-                  type="button"
-                  onClick={() => update({ ...filters, scope: "all" })}
-                  className="press rounded-lg bg-accent px-4 py-2.5 font-medium text-on-accent"
-                >
-                  Alle {counts.all} anzeigen
-                </button>
-              )}
-              <button type="button" onClick={() => update(DEFAULT_FILTERS)} className="press rounded-lg bg-surface-2 px-4 py-2.5 font-medium">
-                Filter zurücksetzen
+        {loadingAll ? (
+          <div className="mx-4 mt-3 lg:mx-0">
+            <LoadingAnnouncement label="Alle Werte werden geladen" />
+            <SkeletonList rows={8} />
+          </div>
+        ) : failedAll ? (
+          <div role="alert" className="panel mx-4 mt-3 px-6 py-10 text-center lg:mx-0">
+            <AlertIcon size={28} className="mx-auto text-warn" />
+            <p className="mt-3 font-semibold">Die vollständige Liste konnte nicht geladen werden.</p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAll(null);
+                  setAttempt((n) => n + 1);
+                }}
+                className="press rounded-lg bg-accent px-4 py-2.5 font-medium text-on-accent"
+              >
+                Erneut versuchen
+              </button>
+              <button
+                type="button"
+                onClick={() => update({ ...filters, scope: "relevant" })}
+                className="press rounded-lg bg-surface-2 px-4 py-2.5 font-medium"
+              >
+                Nur relevante zeigen
               </button>
             </div>
           </div>
         ) : (
-          <div className="panel @container mx-4 mt-3 overflow-hidden lg:mx-0">
-            <SortHeader filters={filters} onSort={(sort) => update({ ...filters, sort })} />
-            <ul>
-              <AnimatePresence initial={false}>
-                {visible.map((r) => (
-                  <m.li
-                    key={r.symbol}
-                    layout="position"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0, transition: { duration: 0.12 } }}
-                    transition={{ type: "spring", stiffness: 500, damping: 42 }}
-                    className="border-b border-line last:border-b-0"
+          <>
+            <div
+              className="mt-3 flex items-center justify-between px-4 text-[0.8125rem] text-fg-2 lg:px-0"
+              role="status"
+              aria-live="polite"
+            >
+              <span>
+                <span className="tnum font-semibold text-fg">{result.length}</span>{" "}
+                {filters.scope === "relevant"
+                  ? result.length === 1
+                    ? "relevanter Wert"
+                    : "relevante Werte"
+                  : result.length === 1
+                    ? "Wert"
+                    : "Werte"}
+                {filters.minScore > 0 && ` · Score ≥ ${filters.minScore}`}
+                {filters.scope === "relevant" && (
+                  <span className="hidden sm:inline"> · Score ≥ 60 oder Tagesbewegung ≥ 2,5σ</span>
+                )}
+              </span>
+              {count > 0 && (
+                <button type="button" onClick={reset} className="font-medium text-accent">
+                  Zurücksetzen
+                </button>
+              )}
+            </div>
+
+            {result.length === 0 ? (
+              <div className="panel mx-4 mt-3 px-6 py-12 text-center lg:mx-0">
+                <FilterIcon size={30} className="mx-auto text-fg-3" />
+                <p className="mt-3 text-[1.0625rem] font-semibold">
+                  {filters.scope === "relevant" ? "Gerade nichts Auffälliges" : "Keine Werte für diese Filter"}
+                </p>
+                <p className="mt-1 text-[0.9375rem] text-fg-2">
+                  {filters.scope === "relevant"
+                    ? "In dieser Auswahl ist aktuell kein Wert relevant (Score ≥ 60 oder große Tagesbewegung)."
+                    : "Senke den Mindest-Score oder entferne einzelne Filter."}
+                </p>
+                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                  {filters.scope === "relevant" && (
+                    <button
+                      type="button"
+                      onClick={() => update({ ...filters, scope: "all" })}
+                      className="press rounded-lg bg-accent px-4 py-2.5 font-medium text-on-accent"
+                    >
+                      Alle Werte der Auswahl zeigen
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => update(DEFAULT_FILTERS)}
+                    className="press rounded-lg bg-surface-2 px-4 py-2.5 font-medium"
                   >
-                    <Row r={r} />
-                  </m.li>
-                ))}
-              </AnimatePresence>
-            </ul>
-          </div>
+                    Filter zurücksetzen
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="panel @container mx-4 mt-3 overflow-hidden lg:mx-0">
+                <SortHeader filters={filters} onSort={(sort) => update({ ...filters, sort })} />
+                <ul>
+                  <AnimatePresence initial={false}>
+                    {visible.map((r) => (
+                      <m.li
+                        key={r.symbol}
+                        layout="position"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                        transition={{ type: "spring", stiffness: 500, damping: 42 }}
+                        className="border-b border-line last:border-b-0"
+                      >
+                        <Row r={r} />
+                      </m.li>
+                    ))}
+                  </AnimatePresence>
+                </ul>
+              </div>
+            )}
+          </>
         )}
-        {result.length > limit && (
+        {result.length > limit && !loadingAll && !failedAll && (
           <div className="mt-4 flex justify-center">
             <button
               type="button"

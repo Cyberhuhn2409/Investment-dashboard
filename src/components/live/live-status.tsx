@@ -26,7 +26,16 @@ export function liveStatusText(s: LiveState): { label: string; tone: "live" | "m
 export function LiveStatus({ className = "" }: { className?: string }) {
   const state = useLiveState();
   const info = liveStatusText(state);
-  if (!info) return null;
+  if (!info) {
+    // Platz freihalten, damit das Einblenden nichts verschiebt
+    return (
+      <p className={`invisible flex items-center gap-1.5 whitespace-nowrap ${className}`} aria-hidden="true">
+        <span className="size-1.5" />
+        <span className="label-mono">Live · simuliert</span>
+        <span className="tnum text-[0.75rem]">00:00:00</span>
+      </p>
+    );
+  }
   const color = info.tone === "live" ? "text-up" : info.tone === "warn" ? "text-warn" : "text-fg-3";
   return (
     <p className={`flex items-center gap-1.5 whitespace-nowrap ${className}`} role="status" aria-live="off">

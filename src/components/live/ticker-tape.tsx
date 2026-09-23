@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import type { TapeItem } from "@/lib/selectors";
 import { LiveChange, LivePrice } from "./live-values";
 
@@ -42,6 +43,13 @@ function Entry({ item, clone = false }: { item: TapeItem; clone?: boolean }) {
  * pausiert bei Hover/Fokus; bei reduzierter Bewegung horizontal scrollbar.
  */
 export function TickerTape({ items, className = "" }: { items: TapeItem[]; className?: string }) {
+  // Die Kopie für die Endlosschleife entsteht erst im Browser (kleineres HTML);
+  // bis dahin steht das Band still.
+  const [running, setRunning] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => setRunning(true), 1500);
+    return () => window.clearTimeout(id);
+  }, []);
   if (items.length === 0) return null;
   return (
     <section
@@ -49,17 +57,23 @@ export function TickerTape({ items, className = "" }: { items: TapeItem[]; class
       tabIndex={0}
       className={`tape no-scrollbar relative overflow-hidden border-y border-line bg-surface motion-reduce:overflow-x-auto ${className}`}
     >
-      <div className="tape-track" style={{ "--tape-duration": `${Math.max(40, items.length * 5)}s` } as React.CSSProperties}>
+      <div
+        className="tape-track"
+        data-running={running ? "" : undefined}
+        style={{ "--tape-duration": `${Math.max(40, items.length * 5)}s` } as React.CSSProperties}
+      >
         <ul className="flex shrink-0">
           {items.map((item) => (
             <Entry key={item.key} item={item} />
           ))}
         </ul>
-        <ul className="tape-clone flex shrink-0" aria-hidden="true">
-          {items.map((item) => (
-            <Entry key={item.key} item={item} clone />
-          ))}
-        </ul>
+        {running && (
+          <ul className="tape-clone flex shrink-0" aria-hidden="true">
+            {items.map((item) => (
+              <Entry key={item.key} item={item} clone />
+            ))}
+          </ul>
+        )}
       </div>
     </section>
   );

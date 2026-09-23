@@ -42,7 +42,7 @@ export function MarketClocks({
             <span className="tnum text-[0.75rem] text-fg">{now === null ? "––:––" : formatClock(now, mkt.tz)}</span>
             <span className={`label-mono ${open ? "text-up" : "text-fg-3"}`}>
               {!compact && <span className="sr-only">{mkt.exchange} </span>}
-              {now === null ? "" : open ? "offen" : compact ? "zu" : "geschlossen"}
+              {now === null ? "\u00a0" : open ? "offen" : compact ? "zu" : "geschlossen"}
             </span>
           </li>
         );

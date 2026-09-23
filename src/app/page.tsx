@@ -45,7 +45,8 @@ export default async function HomePage() {
             </span>
           }
         />
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 pb-3 lg:hidden">
+        {/* Feste Zeilen (Uhren, Live-Status) – nichts verschiebt sich beim Hydrieren */}
+        <div className="flex flex-col gap-1 px-4 pb-3 sm:flex-row sm:items-center sm:justify-between lg:hidden">
           <MarketClocks offsetMs={clockOffsetMs()} compact className="gap-3" />
           <LiveStatus />
         </div>
