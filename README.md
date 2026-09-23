@@ -2,7 +2,7 @@
 
 **Marktsignale aus Kursen, Nachrichten und Social-Media-Diskussionen – transparent erklärt.**
 
-Signal ist eine mobile-first Web-App (PWA), die Kursdaten, News und Diskussionen (Reddit u. a.) zu nachvollziehbaren Signalen verdichtet. Jeder Score wird in Alltagssprache begründet und in seine Bestandteile zerlegt. Signal ist ein **Recherche-Werkzeug – keine Anlageberatung**, kein Handel, keine Konten.
+Signal ist eine mobile-first Web-App (PWA) im Stil eines modernen Markt-Terminals. Sie verdichtet Kursdaten, News und Diskussionen (Reddit u. a.) für **531 Aktien** – US-Werte aller Größenklassen sowie DAX, MDAX und SDAX – zu nachvollziehbaren Signalen und zeigt standardmäßig nur, was **gerade relevant** ist. Kurse aktualisieren sich **live**. Jeder Score wird in Alltagssprache begründet und in seine Bestandteile zerlegt. Signal ist ein **Recherche-Werkzeug – keine Anlageberatung**, kein Handel, keine Konten.
 
 | Start | Heatmap | Detail | Entdecken |
 | --- | --- | --- | --- |
@@ -12,12 +12,12 @@ Alle Screenshots (390 px und 1440 px, Dunkel und Hell, inkl. Lade-/Fehler-/Leer-
 
 ## Funktionen
 
-- **Start:** Indexleiste (S&P 500, Nasdaq 100, DAX), Top-Signale, größte Bewegungen, Trending auf Social.
-- **Heatmap:** Sektor-Treemap (Kachelgröße = Marktkapitalisierung), Einfärbung nach Kurs (1T/1W/1M), Buzz oder Stimmung, Sektor-Zoom, Kachel → Detail.
-- **Entdecken:** Signalliste mit Sparklines, Filter nach Sektor, Region, Signaltyp, Tendenz und Mindest-Score (in der URL teilbar).
-- **Detail:** Kurschart 1T–5J mit Fadenkreuz-Scrubbing (Maus & Touch), Erwähnungen als Balken über dem Kurs, Kennzahlen, Score-Aufschlüsselung + „Warum markiert?“, Stimmung, Top-Diskussionen (mit Link), News, Hinweis „Keine Anlageberatung“.
-- **Watchlist** (lokal im Browser) und **globale Suche** (⌘K / Strg+K, „/“, Such-Tab).
-- Native Anmutung: Tab-Leiste mobil, Seitenleiste auf Desktop, Safe Areas, Spring-Animationen (Motion), Shared-Element-Übergang Karte → Detail (View Transitions), animierte Zahlen, Skeletons, `prefers-reduced-motion`, Dunkel (Standard) + Hell, WCAG AA.
+- **Start:** Börsenuhren und Live-Status, Laufband (Indizes + relevanteste Werte, live), Indexkarten, Top-Signale, **Segment-Radar** (relevante Werte, Marktbreite und Ø-Bewegung je Mega/Large/Mid/Small Cap und DAX/MDAX/SDAX), größte Bewegungen je Größenklasse, Trending auf Social.
+- **Heatmap:** Sektor-Treemap (Kachelgröße = Marktkapitalisierung) je Größenklasse und Region, Einfärbung nach Kurs (1T live, 1W, 1M), Buzz oder Stimmung, „Relevante hervorheben“, Sektor-Zoom, Kachel → Detail.
+- **Entdecken:** zuerst nur **relevante** Werte (Score ≥ 60 oder ungewöhnliche Tagesbewegung), „Alle“ per Klick; Schnellfilter Größenklasse und Index, dazu Sektor, Region, Signaltyp, Tendenz, Mindest-Score, Sortierung (alles in der URL teilbar). Auf breiten Bildschirmen dichte, sortierbare Tabelle mit Live-Kursen.
+- **Detail:** Live-Kurs mit Tick-Aufleuchten, Kurschart 1T–5J (bei offener Börse startet „Heute“ und läuft live mit) mit Fadenkreuz-Scrubbing (Maus & Touch), Erwähnungen als Balken, Kennzahlen inkl. Größenklasse/Index, Score-Aufschlüsselung + „Warum markiert?“, Stimmung, Top-Diskussionen (mit Link), News, Hinweis „Keine Anlageberatung“.
+- **Watchlist** (lokal im Browser, live) und **globale Suche** (⌘K / Strg+K, „/“, Such-Tab) über alle 531 Werte.
+- Terminal-Anmutung mit moderner Bedienung: Bernstein-Akzent, Monospace-Zahlen, Haarlinien-Panels; Tab-Leiste mobil, Seitenleiste auf Desktop, Safe Areas, Spring-Animationen (Motion), Shared-Element-Übergang Karte → Detail (View Transitions), Skeletons, `prefers-reduced-motion`, Dunkel (Standard) + Hell, WCAG AA.
 
 ## Schnellstart
 
@@ -47,7 +47,7 @@ Ohne `.env` läuft alles mit **deterministischen Demo-Daten** (klar als „Demo�
 | `npm run typecheck` | Routen-Typen generieren + `tsc --noEmit` (strict) |
 | `npm test` | Unit-Tests (Vitest): Scoring, Sentiment, Parser, Cache, Rate-Limits, Mock, Filter, Suche |
 | `npm run e2e` | Playwright E2E (mobil + Desktop) inkl. axe-WCAG-Prüfung in beiden Themes – vorher `npm run build` |
-| `npm run screenshots` | Screenshots aller Screens nach `/screenshots` – vorher `npm run build` |
+| `npm run screenshots` | Screenshots aller Screens nach `/screenshots` – vorher `npm run build` (einzelne Motive: `SHOTS=05,16 npm run screenshots`) |
 | `npm run lighthouse` | Lighthouse (mobil) für 5 Seiten; bricht ab bei Performance < 90 oder Accessibility < 95 |
 | `npm run verify` | lint + typecheck + test + build |
 
@@ -65,7 +65,7 @@ Alle Abrufe laufen serverseitig (Server Components, Route Handler). Schlüssel v
 
 | Anbieter | Aktivierung | Genutzt für | Gratis-Limit | Hinweise |
 | --- | --- | --- | --- | --- |
-| Finnhub | `FINNHUB_API_KEY` | Echtzeit-Kurs, Kennzahlen, Unternehmensnews (US) | 60/Min. | Kerzen & Social Sentiment sind Premium → nicht genutzt; persönliche Nutzung |
+| Finnhub | `FINNHUB_API_KEY` | Kurs, Kennzahlen, Unternehmensnews (US); **Echtzeit-Trades per WebSocket** (US + ETF-Proxys) | 60/Min., WebSocket 50 Symbole | Kerzen & Social Sentiment sind Premium → nicht genutzt; persönliche Nutzung |
 | Twelve Data | `TWELVEDATA_API_KEY` | Tageshistorie, Intraday (5/30 Min.), Index-ETFs (SPY, QQQ, EXS1) | 8/Min., 800/Tag | XETRA nur im Bezahltarif (`TWELVEDATA_XETRA=true`); Attribution wird angezeigt |
 | Alpha Vantage | `ALPHAVANTAGE_API_KEY` | XETRA-Tageskurse (100 Tage), optional News | 25/Tag, 5/Min. | reicht nicht für alle DAX-Werte → Cache 24 h |
 | ApeWisdom | `APEWISDOM_ENABLED=true` | Reddit-/4chan-Erwähnungen (US) | nicht dokumentiert → max. alle 15 Min. | keine Texte/Stimmung; 30-Tage-Basislinie baut sich aus eigenen Tageswerten auf |
@@ -75,7 +75,25 @@ Alle Abrufe laufen serverseitig (Server Components, Route Handler). Schlüssel v
 
 Details, Begründungen und Stand der Recherche: [`DECISIONS.md`](DECISIONS.md) (D5).
 
+**Scan-Umfang:** Mit echten Schlüsseln wertet der Snapshot standardmäßig nur Mega/Large Caps und den DAX laufend aus (`SCAN_UNIVERSE=mega,large,DAX`), weil Gratis-Kontingente nicht für 531 Werte reichen. Alle anderen Werte sind über Suche, Detailseite und Watchlist trotzdem vollständig nutzbar. Mit Bezahltarifen z. B. `SCAN_UNIVERSE=all`.
+
 **Mischbetrieb:** Sind nur einige Quellen konfiguriert, werden Lücken mit gekennzeichneten Demo-Daten gefüllt („Teils Demo“). `ALLOW_MOCK_FALLBACK=false` schaltet das ab. Fehlende Daten werden nie erfunden: Ohne Intraday-Quelle zeigt der 1T-Chart einen Hinweis.
+
+## Echtzeit
+
+Live-Kurse kommen per **Server-Sent Events** (`/api/live`): eine Verbindung pro Browser-Tab, nur geänderte Kurse, höchstens einmal pro Sekunde. Der Stream startet nach dem ersten Rendern, pausiert in Hintergrund-Tabs und verbindet sich nach Ausfällen selbst neu.
+
+| Modus | Wann | Quelle |
+| --- | --- | --- |
+| **Live · simuliert** | ohne Schlüssel (Demo) | deterministische Simulation – identisch mit dem Server-Rendering, nur während der Handelszeiten |
+| **Echtzeit** | `FINNHUB_API_KEY` gesetzt | Finnhub-Trade-WebSocket (US-Aktien, ETF-Proxys für S&P 500/Nasdaq 100), serverseitig gebündelt; Schlüssel bleibt auf dem Server |
+| **Verzögert** | Werte ohne Echtzeitquelle (z. B. XETRA im Gratis-Tarif) | zuletzt geladener Kurs, ohne zusätzliche API-Aufrufe |
+
+Optional: `FINNHUB_WS=false` schaltet das WebSocket-Relay ab, `FINNHUB_WS_SYMBOLS` begrenzt die Zahl gleichzeitig abonnierter Symbole (Standard 50). Hinweis zum Hosting: SSE braucht eine Umgebung, die Antworten streamt (z. B. `next start`, Node-Server; bei Proxys Pufferung abschalten).
+
+## Relevanz
+
+Standardansichten zeigen nur Werte, bei denen gerade etwas passiert: **Score ≥ 60** oder eine **Tagesbewegung ≥ 2,5 σ** (übliche Tagesschwankung der letzten 60 Tage). Schwellen in [`src/config/signals.ts`](src/config/signals.ts) (`RELEVANCE`). In der Demo sind das rund 100 von 531 Werten.
 
 ## Signal-Score
 
@@ -94,20 +112,31 @@ Fehlen Daten, wird das Gewicht auf die übrigen Faktoren verteilt und im UI gena
 
 ## Universum
 
-~150 US-Large-Caps + DAX 40 in einer Datei: [`src/config/universe.ts`](src/config/universe.ts) (Symbol, Name, Sektor, Börse, grobe Marktkapitalisierung, Aliase für die Suche).
+531 Werte in einer Datei: [`src/config/universe.ts`](src/config/universe.ts) (Symbol, Name, Sektor, Börse, grobe Marktkapitalisierung, Aliase für die Suche). Sortiert nach Region und Segment; die **Größenklasse** wird aus der Marktkapitalisierung (USD) abgeleitet:
+
+| Klasse | Marktkapitalisierung | Werte (US / DE) |
+| --- | --- | --- |
+| Mega Caps | ab 200 Mrd. $ | 49 / 2 |
+| Large Caps | 10–200 Mrd. $ | 206 / 47 |
+| Mid Caps | 2–10 Mrd. $ | 100 / 44 |
+| Small Caps | unter 2 Mrd. $ | 50 / 33 |
+
+Deutsche Werte tragen zusätzlich ihren Index (DAX 40, MDAX 45, SDAX 41 – Zusammensetzung quartalsweise prüfen).
 
 ## Architektur
 
 ```
 src/
-  app/                 Routen (App Router): Start, /heatmap, /entdecken, /aktie/[symbol], /watchlist, API-Routen
-  components/          UI (Shell, Heatmap, Detail, Entdecken, Watchlist, Suche, UI-Primitives)
-  config/              Universum, Sektoren, Signal-Gewichte
+  app/                 Routen (App Router): Start, /heatmap, /entdecken, /aktie/[symbol], /watchlist,
+                       API: /api/live (SSE), /api/chart, /api/rows, /api/discover
+  components/          UI (Shell, Live, Heatmap, Detail, Entdecken, Watchlist, Suche, UI-Primitives)
+  config/              Universum (Größenklassen, Indizes), Sektoren, Signal-Gewichte, Relevanz
   lib/
     scoring/           Score-Berechnung (rein, getestet)
     sentiment/         Lexikon-Sentiment (EN/DE, Finanz-Slang)
-    providers/         Interfaces, Mock-Provider, echte Provider + Parser
-    server/            Cache (SWR), Rate-Limiter, HTTP, Provider-Registry, Markt-Service
+    live/              Client-Store für Live-Kurse (EventSource, Referenzzählung)
+    providers/         Interfaces, Mock-Provider + Live-Simulation, echte Provider, Finnhub-WebSocket, Parser
+    server/            Cache (SWR), Rate-Limiter, HTTP, Provider-Registry, Markt- und Live-Service
 e2e/                   Playwright: Ablauf, Zustände, Barrierefreiheit, Screenshots
 ```
 

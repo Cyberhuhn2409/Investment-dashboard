@@ -7,24 +7,37 @@ Laufendes Fortschrittsprotokoll für „Signal“. Neueste Einträge oben.
 | Bereich | Stand |
 | --- | --- |
 | Projekt-Setup (Next.js 16, TS strict, Tailwind 4, ESLint, Vitest, Playwright) | ✅ |
-| Universe-Config (148 US + DAX 40), Domänenmodell, Scoring + Unit-Tests | ✅ |
-| Provider-Schicht: deterministischer Mock, Finnhub, Twelve Data, Alpha Vantage, ApeWisdom, Reddit, Claude; SWR-Cache, Rate-Limits | ✅ |
-| Design-System & App-Shell (Tab-Leiste, Seitenleiste, Large Titles, ⌘K-Suche, Dunkel/Hell, PWA) | ✅ |
+| Universum: 531 Werte (US Mega/Large/Mid/Small, DAX/MDAX/SDAX) mit Größenklassen | ✅ |
+| Relevanz-Filter (Score ≥ 60 oder Tagesbewegung ≥ 2,5 σ), Segment-Radar, Größen-/Indexfilter | ✅ |
+| Live-Kurse: SSE-Stream, Demo-Simulation, Finnhub-WebSocket-Relay, Client-Store | ✅ |
+| Terminal-Design (Bernstein-Akzent, Monospace-Zahlen, Laufband, Börsenuhren, Tick-Aufleuchten) | ✅ |
+| Provider-Schicht: deterministischer Mock, Finnhub, Twelve Data, Alpha Vantage, ApeWisdom, Reddit, Claude; SWR-Cache, Rate-Limits, Scan-Umfang | ✅ |
 | Screens: Start, Heatmap, Entdecken, Detail, Watchlist, Suche | ✅ |
-| Zustände: Laden, Leer, Fehler, Veraltet, Nicht gefunden | ✅ |
-| E2E (Playwright, mobil + Desktop) inkl. axe WCAG 2.2 AA in beiden Themes | ✅ 38 Tests |
-| Unit-Tests (Vitest) | ✅ 105 Tests |
-| Screenshots 390/1440 × Dunkel/Hell (15 Motive) | ✅ `/screenshots` |
-| Lighthouse mobil (Performance ≥ 90, Accessibility ≥ 95) | ✅ Perf 95–98, A11y 100 |
-| README, `.env.example`, DECISIONS | ✅ |
+| Zustände: Laden, Leer, Fehler, Veraltet, Nicht gefunden (+ „nichts Auffälliges“, Segment ohne Daten) | ✅ |
+| E2E (Playwright, mobil + Desktop) inkl. Live-Ticks und axe WCAG 2.2 AA in beiden Themes | ✅ 40 Tests |
+| Unit-Tests (Vitest) | ✅ 124 Tests |
+| Screenshots 390/1440 × Dunkel/Hell (17 Motive) | ✅ `/screenshots` |
+| Lighthouse mobil (Performance ≥ 90, Accessibility ≥ 95) | ✅ Perf 93–96, A11y 100 |
+| README, `.env.example`, DECISIONS (D9–D12 neu) | ✅ |
 
 ## Offene Punkte / Ideen
+
+- Finnhub-WebSocket-Relay ist gegen das dokumentierte Nachrichtenformat getestet (Parser), aber nicht live (Proxy blockiert Anbieter). Vor Produktivbetrieb kurz mit echtem Schlüssel prüfen.
+- SSE setzt eine streamende Hosting-Umgebung voraus (Node-Server); bei Serverless-Plattformen begrenzen Laufzeitlimits die Stream-Dauer (EventSource verbindet neu).
+- Indexzugehörigkeit MDAX/SDAX und Marktkapitalisierungen sind Näherungen – quartalsweise prüfen.
 
 - Echte Provider konnten in der Build-Umgebung nicht live getestet werden (Proxy blockiert die Anbieter-Domains). Parser sind gegen dokumentierte Antwortformate mit Fixtures getestet; ein kurzer Smoke-Test mit echten Schlüsseln ist vor Produktivbetrieb sinnvoll.
 - Handelskalender ohne Feiertage (Mock und Sitzungslogik).
 - ApeWisdom-Basislinie braucht einige Tage eigener Historie, bis der Buzz-Faktor aussagekräftig ist.
 
 ## Log
+
+- **Erweiterung „breit, relevant, live, Terminal-Look“ (09/2026):**
+  - Universum auf 531 Werte erweitert (US Mid/Small Caps, weitere Large Caps, MDAX, SDAX); Größenklasse aus Marktkapitalisierung, Index für XETRA-Werte; Mock nach Größenklasse kalibriert. `SCAN_UNIVERSE` für echte Provider (Standard Mega/Large + DAX), nicht gescannte Werte per `getRows` nachladbar.
+  - Relevanz (markiert oder Tagesbewegung ≥ 2,5 σ) als Standardansicht in Entdecken; Größen-/Index-Schnellfilter; Gesamtliste wird erst bei „Alle“ geladen (`/api/discover`), damit das HTML klein bleibt.
+  - Live-Schicht: `/api/live` (SSE), Demo-Kurs als reine Funktion der Zeit (SSR = Stream), Finnhub-WebSocket-Relay mit Referenzzählung, Client-Store (eine Verbindung, Pause im Hintergrund). Live-Kurse in Karten, Listen, Laufband, Heatmap (1T) und Detail (Chart per `series.update`).
+  - Terminal-Design: Bernstein-Akzent, Monospace-Tabellenziffern, Haarlinien-Panels, Statusleiste mit Börsenuhren, Laufband, Segment-Radar, Tabellen per Container Queries.
+  - Verifikation: lint, typecheck, 124 Unit-Tests, 40 E2E-Tests (inkl. Live-Ticks, axe beide Themes), Lighthouse mobil 93–96 / A11y 100, 68 Screenshots neu erzeugt und gesichtet. Dabei behoben: Layout-Shift durch Live-Status, Dauer-Repaints durch Box-Shadow-Puls, zu großes HTML in Entdecken, Theme auf 404-Seiten, veralteter „XYZ“-Testticker (inzwischen Block Inc.).
 
 - **Verifikation:** build, lint, typecheck, 105 Unit-Tests, 38 E2E-Tests grün; Lighthouse mobil alle fünf Seiten ≥ 95 Performance / 100 Accessibility; 60 Screenshots geprüft und Auffälligkeiten behoben (doppelte Demo-Beiträge, abgeschnittene Heatmap-Ticker, Breadcrumb-Umbruch, Layout-Shift im Chart).
 - **Zustände & Screenshots:** Lade-/Fehler-/Veraltet-Zustände per Request-Interception fotografiert; Screenshot-Suite in `e2e/screenshots.spec.ts`.
