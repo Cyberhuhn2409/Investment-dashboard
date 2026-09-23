@@ -92,3 +92,20 @@ describe("cached (Stale-While-Revalidate)", () => {
     ).rejects.toThrow("nope");
   });
 });
+
+describe("Cache mit wertabhängiger Laufzeit", () => {
+  it("nutzt die aus dem Wert berechnete TTL", async () => {
+    const { cached, clearCache } = await import("./cache");
+    clearCache();
+    let calls = 0;
+    const load = async () => ({ complete: ++calls > 1 });
+    const opts = { ttl: (v: { complete: boolean }) => (v.complete ? 60_000 : 0) };
+    await cached("dyn", load, opts);
+    // unvollständig → sofort abgelaufen, nächster Aufruf lädt im Hintergrund neu
+    await cached("dyn", load, opts);
+    await new Promise((r) => setTimeout(r, 10));
+    const third = await cached("dyn", load, opts);
+    expect(third.value.complete).toBe(true);
+    expect(calls).toBe(2);
+  });
+});

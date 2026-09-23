@@ -1,3 +1,16 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
+/**
+ * Wartezeit-Budget für alle Anbieteraufrufe innerhalb eines Ablaufs. Die
+ * Marktübersicht lädt mit Budget 0 („nimm, was sofort geht“), damit eine Seite
+ * nie minutenlang auf Kontingente wartet; der Hintergrund-Lader wartet länger.
+ */
+const budget = new AsyncLocalStorage<{ maxWaitMs: number }>();
+
+export function withLimiterBudget<T>(maxWaitMs: number, fn: () => Promise<T>): Promise<T> {
+  return budget.run({ maxWaitMs }, fn);
+}
+
 /**
  * Token-Bucket je Provider. Anfragen warten, bis ein Token frei ist; nach einem
  * HTTP 429 pausiert der Bucket („Cooldown“), damit wir das Limit des Anbieters
@@ -75,7 +88,7 @@ export class RateLimiter {
 
   /** Wartet auf ein Token oder wirft RateLimitError, wenn die Wartezeit zu lang wäre. */
   async take(): Promise<void> {
-    const maxWait = this.opts.maxWaitMs ?? 8_000;
+    const maxWait = budget.getStore()?.maxWaitMs ?? this.opts.maxWaitMs ?? 8_000;
     const start = this.clock();
     for (;;) {
       this.checkDay();

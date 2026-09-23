@@ -28,8 +28,9 @@ import type {
   InstrumentRow,
   Snapshot,
 } from "@/lib/types";
-import { cached, peek } from "./cache";
+import { cached, peek, type CacheResult } from "./cache";
 import { mockScenario, nowMs } from "./clock";
+import { RateLimitError, withLimiterBudget } from "./rate-limit";
 import { getProviders } from "./registry";
 
 const MIN = 60_000;
@@ -145,6 +146,15 @@ function loadFundamentals(instrument: Instrument) {
   return cached(`fund:${p.id}:${instrument.symbol}`, () => p.getFundamentals(instrument), ttl("fundamentals"));
 }
 
+/**
+ * Optionale Daten (Social, News): Fehler machen die Zeile nicht kaputt. Nur ein
+ * echter Anbieterfehler gilt als „veraltet“ – ein verschobener Abruf
+ * (Kontingent gerade erschöpft) nicht.
+ */
+function optional<T>(p: Promise<CacheResult<T>>, empty: T): Promise<CacheResult<T>> {
+  return p.catch((e: unknown) => ({ value: empty, fetchedAt: 0, stale: !(e instanceof RateLimitError) }));
+}
+
 function isDemo(instrument: Instrument): boolean {
   const ps = getProviders();
   return ps.price(instrument).mock || ps.social(instrument).mock || ps.news(instrument).mock;
@@ -217,8 +227,8 @@ async function buildRow(instrument: Instrument): Promise<RowBundle> {
   const [daily, quote, social, news] = await Promise.all([
     loadDaily(instrument, SCORING_DAYS),
     loadQuote(instrument),
-    loadSocial(instrument).catch(() => ({ value: EMPTY_SOCIAL, fetchedAt: 0, stale: true })),
-    loadNews(instrument).catch(() => ({ value: EMPTY_NEWS, fetchedAt: 0, stale: true })),
+    optional(loadSocial(instrument), EMPTY_SOCIAL),
+    optional(loadNews(instrument), EMPTY_NEWS),
   ]);
   const closes = daily.value.map((c) => c.c);
   // Kursreihe mit aktuellem Kurs synchronisieren
@@ -326,11 +336,64 @@ async function buildIndices(): Promise<IndexRow[]> {
   return rows;
 }
 
+/* ------------------------------------------------------------------ */
+/* Hintergrund-Lader (nur echte Provider)                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Die Übersicht nimmt nur, was die Kontingente sofort hergeben (Budget 0).
+ * Fehlende Werte lädt dieser Lader nach und nach im Rahmen der Limits nach –
+ * einer nach dem anderen, damit Detailseiten und Live-Abfragen Vorrang behalten.
+ */
+const warmer = globalThis as { __signalWarmer?: { running: boolean; timer: ReturnType<typeof setInterval> } };
+
+function hasCachedRow(instrument: Instrument): boolean {
+  const ps = getProviders();
+  const p = ps.price(instrument);
+  const news = ps.news(instrument);
+  const social = ps.social(instrument);
+  return (
+    peek(`daily:${p.id}:${instrument.symbol}:${SCORING_DAYS}`) !== undefined &&
+    peek(`quote:${p.id}:${instrument.symbol}`) !== undefined &&
+    (news.mock || peek(`news:${news.id}:${instrument.symbol}`) !== undefined) &&
+    (social.mock || peek(`social:${social.id}:${instrument.symbol}`) !== undefined)
+  );
+}
+
+export function missingRows(): Instrument[] {
+  const ps = getProviders();
+  return scanUniverse().filter((i) => !ps.price(i).mock && !hasCachedRow(i));
+}
+
+async function warmStep(): Promise<void> {
+  const state = warmer.__signalWarmer;
+  if (!state || state.running) return;
+  state.running = true;
+  const started = Date.now();
+  try {
+    for (const instrument of missingRows()) {
+      if (Date.now() - started > 50_000) break;
+      await withLimiterBudget(20_000, () => buildRow(instrument)).catch(() => undefined);
+    }
+  } finally {
+    state.running = false;
+  }
+}
+
+function ensureWarmer(): void {
+  if (getProviders().demo || warmer.__signalWarmer || missingRows().length === 0) return;
+  const timer = setInterval(() => void warmStep(), 60_000);
+  timer.unref?.();
+  warmer.__signalWarmer = { running: false, timer };
+  void warmStep();
+}
+
 async function buildSnapshot(): Promise<Snapshot> {
   assertScenario();
   const ps = getProviders();
   const scan = scanUniverse();
-  const results = await mapLimit(scan, 12, buildRow);
+  // Echte Provider: nicht auf Kontingente warten (Budget 0) – Fehlendes lädt der Hintergrund-Lader
+  const results = await mapLimit(scan, 12, (i) => (ps.demo ? buildRow(i) : withLimiterBudget(0, () => buildRow(i))));
   const bundles = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
   const failed = results.length - bundles.length;
   if (bundles.length === 0) {
@@ -340,7 +403,14 @@ async function buildSnapshot(): Promise<Snapshot> {
   const indices = await getIndexRows().catch(() => [] as IndexRow[]);
   const now = nowMs();
   const notes: string[] = [];
-  if (failed > 0) notes.push(`${failed} von ${scan.length} Werten konnten nicht geladen werden (Rate-Limit oder Anbieterlücke).`);
+  if (failed > 0) {
+    ensureWarmer();
+    notes.push(
+      ps.demo
+        ? `${failed} von ${scan.length} Werten konnten nicht geladen werden.`
+        : `${bundles.length} von ${scan.length} Werten geladen – die übrigen werden im Hintergrund im Rahmen der Anbieter-Kontingente nachgeladen.`,
+    );
+  }
   const scenarioStale = ps.demo && mockScenario() === "stale";
   const asOf = scenarioStale ? now - 3 * HOUR : Math.max(...bundles.map((b) => b.quoteTime));
 
@@ -358,7 +428,12 @@ async function buildSnapshot(): Promise<Snapshot> {
 }
 
 export async function getSnapshot(): Promise<Snapshot> {
-  const res = await cached("snapshot", buildSnapshot, ttl("snapshot"));
+  // Solange noch Werte fehlen (Hintergrund-Lader holt sie nach), die Übersicht öfter neu zusammensetzen
+  const base = ttl("snapshot");
+  const res = await cached("snapshot", buildSnapshot, {
+    ttl: (snap: Snapshot) => (snap.status.coverage.loaded < snap.status.coverage.total ? Math.min(base.ttl, 30_000) : base.ttl),
+    staleTtl: base.staleTtl,
+  });
   if (!res.stale) return res.value;
   return { ...res.value, status: { ...res.value.status, stale: true } };
 }
@@ -535,8 +610,8 @@ export async function getInstrumentDetail(symbol: string): Promise<InstrumentDet
   const [bundle, fundamentals, social, news, chart] = await Promise.all([
     buildRow(instrument),
     loadFundamentals(instrument),
-    loadSocial(instrument).catch(() => ({ value: EMPTY_SOCIAL, fetchedAt: 0, stale: true })),
-    loadNews(instrument).catch(() => ({ value: EMPTY_NEWS, fetchedAt: 0, stale: true })),
+    optional(loadSocial(instrument), EMPTY_SOCIAL),
+    optional(loadNews(instrument), EMPTY_NEWS),
     buildChart(instrument, open ? "1D" : "1M")
       .then((c) => (c.points.length > 1 ? c : buildChart(instrument, "1M")))
       .catch(() => buildChart(instrument, "1M")),

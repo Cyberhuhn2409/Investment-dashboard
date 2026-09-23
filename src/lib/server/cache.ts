@@ -1,4 +1,5 @@
 import "server-only";
+import { RateLimitError } from "./rate-limit";
 
 /**
  * Prozessweiter In-Memory-Cache mit Stale-While-Revalidate:
@@ -28,25 +29,26 @@ const store = new Map<string, Entry<unknown>>();
 const inflight = new Map<string, Promise<Entry<unknown>>>();
 const MAX_ENTRIES = 5000;
 
-export interface CacheOptions {
-  /** Frische in ms */
-  ttl: number;
+export interface CacheOptions<T = unknown> {
+  /** Frische in ms – oder abhängig vom geladenen Wert (z. B. kürzer, solange Daten unvollständig sind) */
+  ttl: number | ((value: T) => number);
   /** Zusätzliche Zeit, in der veraltete Werte noch ausgeliefert werden (ms). */
   staleTtl?: number;
 }
 
-function refresh<T>(key: string, loader: () => Promise<T>, opts: CacheOptions): Promise<Entry<T>> {
+function refresh<T>(key: string, loader: () => Promise<T>, opts: CacheOptions<T>): Promise<Entry<T>> {
   const running = inflight.get(key) as Promise<Entry<T>> | undefined;
   if (running) return running;
   const p = (async () => {
     try {
       const value = await loader();
       const now = Date.now();
+      const ttl = typeof opts.ttl === "function" ? opts.ttl(value) : opts.ttl;
       const entry: Entry<T> = {
         value,
         fetchedAt: now,
-        expiresAt: now + opts.ttl,
-        discardAt: now + opts.ttl + (opts.staleTtl ?? opts.ttl * 10),
+        expiresAt: now + ttl,
+        discardAt: now + ttl + (opts.staleTtl ?? ttl * 10),
         failed: false,
       };
       if (store.size >= MAX_ENTRIES) {
@@ -63,7 +65,7 @@ function refresh<T>(key: string, loader: () => Promise<T>, opts: CacheOptions): 
   return p;
 }
 
-export async function cached<T>(key: string, loader: () => Promise<T>, opts: CacheOptions): Promise<CacheResult<T>> {
+export async function cached<T>(key: string, loader: () => Promise<T>, opts: CacheOptions<T>): Promise<CacheResult<T>> {
   const now = Date.now();
   const hit = store.get(key) as Entry<T> | undefined;
 
@@ -73,9 +75,12 @@ export async function cached<T>(key: string, loader: () => Promise<T>, opts: Cac
 
   if (hit && now < hit.discardAt) {
     // Im Hintergrund erneuern, alten Wert sofort liefern.
-    refresh(key, loader, opts).catch(() => {
+    refresh(key, loader, opts).catch((error: unknown) => {
+      // Nur verschoben (Kontingent erschöpft) ≠ Anbieterfehler: Wert gilt nicht als veraltet
+      if (error instanceof RateLimitError) return;
       hit.failed = true;
-      hit.expiresAt = Date.now() + Math.min(opts.ttl, 60_000);
+      const ttl = typeof opts.ttl === "function" ? opts.ttl(hit.value) : opts.ttl;
+      hit.expiresAt = Date.now() + Math.min(ttl, 60_000);
     });
     return { value: hit.value, fetchedAt: hit.fetchedAt, stale: hit.failed };
   }
