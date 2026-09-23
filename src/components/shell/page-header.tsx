@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeftIcon, SearchIcon } from "../icons";
+import { SearchIcon } from "../icons";
+import { BackLink } from "./back-link";
 import { openSearch } from "./nav";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -47,16 +47,7 @@ export function PageHeader({
       >
         <div className="flex h-12 items-center gap-2 px-2">
           <div className="flex min-w-0 flex-1 items-center">
-            {back ? (
-              <Link
-                href={back.href}
-                transitionTypes={["nav-back"]}
-                className="press -ml-1 flex items-center gap-0.5 rounded-lg py-2 pl-1 pr-2 text-[1.0625rem] text-accent"
-              >
-                <ChevronLeftIcon size={24} strokeWidth={2.2} />
-                <span>{back.label}</span>
-              </Link>
-            ) : null}
+            {back ? <BackLink fallback={back.href} label={back.label} /> : null}
           </div>
           <div
             className={`min-w-0 max-w-[55%] truncate text-center text-[1.0625rem] font-semibold transition-opacity duration-200 ${

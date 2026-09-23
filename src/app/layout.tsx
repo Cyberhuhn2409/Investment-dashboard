@@ -4,6 +4,7 @@ import { SearchHost } from "@/components/search/search-host";
 import { Sidebar } from "@/components/shell/sidebar";
 import { TabBar } from "@/components/shell/tab-bar";
 import { ServiceWorker } from "@/components/service-worker";
+import { NavTracker } from "@/components/shell/back-link";
 import { THEME_COLORS, THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -53,6 +54,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </div>
           <TabBar />
           <SearchHost />
+          <NavTracker />
         </MotionProvider>
         <ServiceWorker />
       </body>
