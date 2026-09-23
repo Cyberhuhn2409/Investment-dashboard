@@ -12,7 +12,7 @@ const TYPE_GLYPH: Record<SignalType, string> = {
 export function SignalTypeBadge({ type, className = "" }: { type: SignalType; className?: string }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[0.75rem] font-medium text-accent ${className}`}
+      className={`inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-full bg-accent-soft px-2 py-0.5 text-[0.75rem] font-medium text-accent ${className}`}
     >
       <span aria-hidden="true" className="text-[0.7rem] leading-none">
         {TYPE_GLYPH[type]}
@@ -36,7 +36,7 @@ export function DirectionBadge({ direction, className = "" }: { direction: Signa
   const d = DIRECTION[direction];
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.75rem] font-medium ${d.cls} ${className}`}
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[0.75rem] font-medium ${d.cls} ${className}`}
     >
       <span aria-hidden="true" className="text-[0.6rem] leading-none">
         {d.glyph}
